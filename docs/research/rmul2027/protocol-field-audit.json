@@ -1,0 +1,2919 @@
+{
+  "method": "Regex transcription from PDF extracted text; not an official .proto or a compile/compatibility verdict. RadarInfoToClient is malformed in source. Review table semantics separately.",
+  "messages": [
+    {
+      "message": "KeyboardMouseControl",
+      "pdf_page": 53,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "mouse_x"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "mouse_y"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "mouse_z"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "left_button_down"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "right_button_down"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "keyboard_value"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "mid_button_down"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "int32",
+            "name": "mouse_x"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "int32",
+            "name": "mouse_x"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "int32",
+            "name": "mouse_y"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "int32",
+            "name": "mouse_y"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "int32",
+            "name": "mouse_z"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "int32",
+            "name": "mouse_z"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "left_button_down"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "left_button_down"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "right_button_down"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "right_button_down"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "keyboard_value"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "keyboard_value"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "mid_button_down"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "mid_button_down"
+          }
+        }
+      ]
+    },
+    {
+      "message": "CustomControl",
+      "pdf_page": 53,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "bytes",
+          "name": "data"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "bytes",
+            "name": "data"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bytes",
+            "name": "data"
+          }
+        }
+      ]
+    },
+    {
+      "message": "GameStatus",
+      "pdf_page": 54,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_round"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_rounds"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "red_score"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "blue_score"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_stage"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "stage_countdown_sec"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "stage_elapsed_sec"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "is_paused"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "game_result"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "end_reason"
+        }
+      },
+      "local_exists": true,
+      "changes": []
+    },
+    {
+      "message": "GlobalUnitStatus",
+      "pdf_page": 56,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "base_health"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "base_status"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "base_shield"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "outpost_R_health"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "outpost_R_status"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_base_health"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_base_status"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_base_shield"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "outpost_B_health"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "outpost_B_status"
+        },
+        "11": {
+          "presence": "repeated",
+          "type": "uint32",
+          "name": "robot_health"
+        },
+        "12": {
+          "presence": "repeated",
+          "type": "int32",
+          "name": "robot_bullets"
+        },
+        "13": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_damage_ally"
+        },
+        "14": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_damage_enemy"
+        },
+        "15": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_CP_ally"
+        },
+        "16": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_CP_enemy"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "base_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "base_health"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "base_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "base_status"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "base_shield"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "base_shield"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "outpost_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "outpost_R_health"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "outpost_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "outpost_R_status"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_base_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_base_health"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_base_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_base_status"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_base_shield"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_base_shield"
+          }
+        },
+        {
+          "number": 9,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_outpost_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "outpost_B_health"
+          }
+        },
+        {
+          "number": 10,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_outpost_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "outpost_B_status"
+          }
+        },
+        {
+          "number": 13,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_damage_ally"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_damage_ally"
+          }
+        },
+        {
+          "number": 14,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_damage_enemy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_damage_enemy"
+          }
+        },
+        {
+          "number": 15,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_CP_ally"
+          }
+        },
+        {
+          "number": 16,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_CP_enemy"
+          }
+        }
+      ]
+    },
+    {
+      "message": "GlobalLogisticsStatus",
+      "pdf_page": 57,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "remaining_economy"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint64",
+          "name": "total_economy_obtained"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "tech_level"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "encryption_level"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "remaining_economy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "remaining_economy"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint64",
+            "name": "total_economy_obtained"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint64",
+            "name": "total_economy_obtained"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "tech_level"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "tech_level"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "encryption_level"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "encryption_level"
+          }
+        }
+      ]
+    },
+    {
+      "message": "GlobalSpecialMechanism",
+      "pdf_page": 57,
+      "fields": {
+        "1": {
+          "presence": "repeated",
+          "type": "uint32",
+          "name": "mechanism_id"
+        },
+        "2": {
+          "presence": "repeated",
+          "type": "int32",
+          "name": "mechanism_time_sec"
+        }
+      },
+      "local_exists": true,
+      "changes": []
+    },
+    {
+      "message": "Event",
+      "pdf_page": 58,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "event_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "string",
+          "name": "param"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "int32",
+            "name": "event_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "int32",
+            "name": "event_id"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "string",
+            "name": "param"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "string",
+            "name": "param"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotInjuryStat",
+      "pdf_page": 59,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_damage"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "collision_damage"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "small_projectile_damage"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "large_projectile_damage"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "dart_splash_damage"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "module_offline_damage"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "offline_damage"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "penalty_damage"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "server_kill_damage"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "killer_id"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_damage"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "collision_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "collision_damage"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "small_projectile_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "small_projectile_damage"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "large_projectile_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "large_projectile_damage"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "dart_splash_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "dart_splash_damage"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "module_offline_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "module_offline_damage"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "offline_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "offline_damage"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "penalty_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "penalty_damage"
+          }
+        },
+        {
+          "number": 9,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "server_kill_damage"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "server_kill_damage"
+          }
+        },
+        {
+          "number": 10,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "killer_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "killer_id"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotRespawnStatus",
+      "pdf_page": 60,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "is_pending_respawn"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_respawn_progress"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_respawn_progress"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "can_free_respawn"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "gold_cost_for_respawn"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "can_pay_for_respawn"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "is_pending_respawn"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "is_pending_respawn"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_respawn_progress"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_respawn_progress"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "current_respawn_progress"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "current_respawn_progress"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "can_free_respawn"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "can_free_respawn"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "gold_cost_for_respawn"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "gold_cost_for_respawn"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "can_pay_for_respawn"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "can_pay_for_respawn"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotStaticStatus",
+      "pdf_page": 61,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "connection_state"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "field_state"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "alive_state"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "robot_id"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "robot_type"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "performance_system_shooter"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "performance_system_chassis"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "level"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "max_health"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "max_heat"
+        },
+        "11": {
+          "presence": "optional",
+          "type": "float",
+          "name": "heat_cooldown_rate"
+        },
+        "12": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "max_power"
+        },
+        "13": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "max_buffer_energy"
+        },
+        "14": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "max_chassis_energy"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "connection_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "connection_state"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "field_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "field_state"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "alive_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "alive_state"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "robot_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "robot_id"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "robot_type"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "robot_type"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "performance_system_shooter"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "performance_system_shooter"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "performance_system_chassis"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "performance_system_chassis"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "level"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "level"
+          }
+        },
+        {
+          "number": 9,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "max_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "max_health"
+          }
+        },
+        {
+          "number": 10,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "max_heat"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "max_heat"
+          }
+        },
+        {
+          "number": 11,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "heat_cooldown_rate"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "heat_cooldown_rate"
+          }
+        },
+        {
+          "number": 12,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "max_power"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "max_power"
+          }
+        },
+        {
+          "number": 13,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "max_buffer_energy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "max_buffer_energy"
+          }
+        },
+        {
+          "number": 14,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "max_chassis_energy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "max_chassis_energy"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotDynamicStatus",
+      "pdf_page": 62,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_health"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "float",
+          "name": "current_heat"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "float",
+          "name": "last_projectile_fire_rate"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "reserved"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_buffer_energy"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "current_experience"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "experience_for_upgrade"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_projectiles_fired"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "remaining_ammo"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "is_out_of_combat"
+        },
+        "11": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "out_of_combat_countdown"
+        },
+        "12": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "can_remote_heal"
+        },
+        "13": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "can_remote_ammo"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "current_health"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "current_health"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "current_heat"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "current_heat"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "last_projectile_fire_rate"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "last_projectile_fire_rate"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "current_chassis_energy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "reserved"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "current_buffer_energy"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "current_buffer_energy"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "current_experience"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "current_experience"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "experience_for_upgrade"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "experience_for_upgrade"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_projectiles_fired"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_projectiles_fired"
+          }
+        },
+        {
+          "number": 9,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "remaining_ammo"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "remaining_ammo"
+          }
+        },
+        {
+          "number": 10,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "is_out_of_combat"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "is_out_of_combat"
+          }
+        },
+        {
+          "number": 11,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "out_of_combat_countdown"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "out_of_combat_countdown"
+          }
+        },
+        {
+          "number": 12,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "can_remote_heal"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "can_remote_heal"
+          }
+        },
+        {
+          "number": 13,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "can_remote_ammo"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "can_remote_ammo"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotModuleStatus",
+      "pdf_page": 63,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "power_manager"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "rfid"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "light_strip"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "small_shooter"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "big_shooter"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "uwb"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "armor"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "video_transmission"
+        },
+        "9": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "capacitor"
+        },
+        "10": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "main_controller"
+        },
+        "11": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "modular_42mm"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "power_manager"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "power_manager"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "rfid"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "rfid"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "light_strip"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "light_strip"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "small_shooter"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "small_shooter"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "big_shooter"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "big_shooter"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "uwb"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "uwb"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "armor"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "armor"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "video_transmission"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "video_transmission"
+          }
+        },
+        {
+          "number": 9,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "capacitor"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "capacitor"
+          }
+        },
+        {
+          "number": 10,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "main_controller"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "main_controller"
+          }
+        },
+        {
+          "number": 11,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "laser_detection_module"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "modular_42mm"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotPosition",
+      "pdf_page": 64,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "float",
+          "name": "x"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "float",
+          "name": "y"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "float",
+          "name": "z"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "float",
+          "name": "yaw"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "robot_id"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "x"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "x"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "y"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "y"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "z"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "z"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "yaw"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "yaw"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "robot_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "robot_id"
+          }
+        }
+      ]
+    },
+    {
+      "message": "Buff",
+      "pdf_page": 65,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "robot_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "buff_type"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "int32",
+          "name": "buff_level"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "buff_max_time"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "buff_left_time"
+        }
+      },
+      "local_exists": true,
+      "changes": []
+    },
+    {
+      "message": "PenaltyInfo",
+      "pdf_page": 66,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "penalty_type"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "penalty_effect_sec"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "total_penalty_num"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "penalty_type"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "penalty_type"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "penalty_effect_sec"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "penalty_effect_sec"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "total_penalty_num"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "total_penalty_num"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotPathPlanInfo",
+      "pdf_page": 66,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "intention"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "start_pos_x"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "start_pos_y"
+        },
+        "4": {
+          "presence": "repeated",
+          "type": "int32",
+          "name": "offset_x"
+        },
+        "5": {
+          "presence": "repeated",
+          "type": "int32",
+          "name": "offset_y"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "sender_id"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "intention"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "intention"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "start_pos_x"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "start_pos_x"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "start_pos_y"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "start_pos_y"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "sender_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "sender_id"
+          }
+        }
+      ]
+    },
+    {
+      "message": "MapClickInfo",
+      "pdf_page": 67,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "is_send_all"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "bytes",
+          "name": "robot_id"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "mode"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_id"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "ascii"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "type"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "float",
+          "name": "map_x"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "float",
+          "name": "map_y"
+        }
+      },
+      "local_exists": false,
+      "changes": [
+        {
+          "number": 1,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "is_send_all"
+          }
+        },
+        {
+          "number": 2,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "bytes",
+            "name": "robot_id"
+          }
+        },
+        {
+          "number": 3,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "mode"
+          }
+        },
+        {
+          "number": 4,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_id"
+          }
+        },
+        {
+          "number": 5,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "ascii"
+          }
+        },
+        {
+          "number": 6,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "type"
+          }
+        },
+        {
+          "number": 7,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "map_x"
+          }
+        },
+        {
+          "number": 8,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "map_y"
+          }
+        }
+      ]
+    },
+    {
+      "message": "MapClickCmd",
+      "pdf_page": 68,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "is_send_all"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "bytes",
+          "name": "robot_id"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "mode"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_id"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "ascii"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "type"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "float",
+          "name": "map_x"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "float",
+          "name": "map_y"
+        }
+      },
+      "local_exists": false,
+      "changes": [
+        {
+          "number": 1,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "is_send_all"
+          }
+        },
+        {
+          "number": 2,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "bytes",
+            "name": "robot_id"
+          }
+        },
+        {
+          "number": 3,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "mode"
+          }
+        },
+        {
+          "number": 4,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_id"
+          }
+        },
+        {
+          "number": 5,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "ascii"
+          }
+        },
+        {
+          "number": 6,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "type"
+          }
+        },
+        {
+          "number": 7,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "map_x"
+          }
+        },
+        {
+          "number": 8,
+          "before": null,
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "map_y"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RadarInfoToClient",
+      "pdf_page": 69,
+      "fields": {},
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "repeated",
+            "type": "RadarSingleRobotInfo",
+            "name": "robot_info"
+          },
+          "after": null
+        }
+      ]
+    },
+    {
+      "message": "RadarSingleRobotInfo",
+      "pdf_page": 69,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "target_pos_x"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "target_pos_y"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "is_high_light"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "target_pos_x"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "target_pos_x"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "target_pos_y"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "target_pos_y"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "is_high_light"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "is_high_light"
+          }
+        }
+      ]
+    },
+    {
+      "message": "CustomByteBlock",
+      "pdf_page": 69,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "bytes",
+          "name": "data"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "bytes",
+            "name": "data"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bytes",
+            "name": "data"
+          }
+        }
+      ]
+    },
+    {
+      "message": "AssemblyCommand",
+      "pdf_page": 69,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "operation"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "difficulty"
+        }
+      },
+      "local_exists": true,
+      "changes": []
+    },
+    {
+      "message": "TechCoreMotionStateSync",
+      "pdf_page": 70,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "maximum_difficulty_level"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "basic_state"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "putin_state"
+        },
+        "4": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "move_state"
+        },
+        "5": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "rotate_state"
+        },
+        "6": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "enemy_core_status"
+        },
+        "7": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "remain_time_all"
+        },
+        "8": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "remain_time_step"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "maximum_difficulty_level"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "maximum_difficulty_level"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "basic_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "basic_state"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "putin_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "putin_state"
+          }
+        },
+        {
+          "number": 4,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "move_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "move_state"
+          }
+        },
+        {
+          "number": 5,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "rotate_state"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "rotate_state"
+          }
+        },
+        {
+          "number": 6,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "enemy_core_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "enemy_core_status"
+          }
+        },
+        {
+          "number": 7,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "remain_time_all"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "remain_time_all"
+          }
+        },
+        {
+          "number": 8,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "remain_time_step"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "remain_time_step"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotPerformanceSelectionCommand",
+      "pdf_page": 71,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "shooter"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "chassis"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "sentry_control"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "shooter"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "shooter"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "chassis"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "chassis"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "sentry_control"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "sentry_control"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RobotPerformanceSelectionSync",
+      "pdf_page": 71,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "shooter"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "chassis"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "sentry_control"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "shooter"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "shooter"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "chassis"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "chassis"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "sentry_control"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "sentry_control"
+          }
+        }
+      ]
+    },
+    {
+      "message": "CommonCommand",
+      "pdf_page": 72,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "cmd_type"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "param"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "cmd_type"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "cmd_type"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "param"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "param"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RuneActivateCommand",
+      "pdf_page": 72,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "activate"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "activate"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "activate"
+          }
+        }
+      ]
+    },
+    {
+      "message": "RuneStatusSync",
+      "pdf_page": 73,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "rune_status"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "activated_arms"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "float",
+          "name": "average_rings"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "rune_status"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "rune_status"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "activated_arms"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "activated_arms"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "float",
+            "name": "average_rings"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "float",
+            "name": "average_rings"
+          }
+        }
+      ]
+    },
+    {
+      "message": "SentryStatusSync",
+      "pdf_page": 73,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "posture_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "is_weakened"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "is_powered"
+        }
+      },
+      "local_exists": true,
+      "changes": []
+    },
+    {
+      "message": "DartCommand",
+      "pdf_page": 73,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "target_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "open"
+        },
+        "3": {
+          "presence": "optional",
+          "type": "bool",
+          "name": "launch_confirm"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "target_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "target_id"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "open"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "open"
+          }
+        },
+        {
+          "number": 3,
+          "before": {
+            "presence": "implicit",
+            "type": "bool",
+            "name": "launch_confirm"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "bool",
+            "name": "launch_confirm"
+          }
+        }
+      ]
+    },
+    {
+      "message": "DartSelectTargetStatusSync",
+      "pdf_page": 74,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "target_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "open"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "target_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "target_id"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "open"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "open"
+          }
+        }
+      ]
+    },
+    {
+      "message": "SentryCtrlCommand",
+      "pdf_page": 75,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "command_id"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "command_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "command_id"
+          }
+        }
+      ]
+    },
+    {
+      "message": "SentryCtrlResult",
+      "pdf_page": 75,
+      "fields": {
+        "1": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "command_id"
+        },
+        "2": {
+          "presence": "optional",
+          "type": "uint32",
+          "name": "result_code"
+        }
+      },
+      "local_exists": true,
+      "changes": [
+        {
+          "number": 1,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "command_id"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "command_id"
+          }
+        },
+        {
+          "number": 2,
+          "before": {
+            "presence": "implicit",
+            "type": "uint32",
+            "name": "result_code"
+          },
+          "after": {
+            "presence": "optional",
+            "type": "uint32",
+            "name": "result_code"
+          }
+        }
+      ]
+    }
+  ]
+}

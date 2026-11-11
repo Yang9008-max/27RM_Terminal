@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "windows-ucrt64",
+      "inherits": "release",
+      "generator": "Ninja",
+      "environment": {
+        "PATH": "${sourceDir}/.deps/msys64/ucrt64/bin;${sourceDir}/.deps/msys64/usr/bin;${sourceDir}/.deps/onnxruntime-win-x64-1.31.1/lib;$penv{PATH}",
+        "PKG_CONFIG_PATH": "${sourceDir}/.deps/msys64/ucrt64/lib/pkgconfig"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "${sourceDir}/.deps/msys64/ucrt64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "${sourceDir}/.deps/msys64/ucrt64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM": "${sourceDir}/.deps/msys64/ucrt64/bin/ninja.exe",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.deps/msys64/ucrt64",
+        "CMAKE_FIND_PACKAGE_PREFER_CONFIG": "ON",
+        "PAHO_MQTT_ROOT": "${sourceDir}/.deps/msys64/ucrt64",
+        "ONNXRUNTIME_ROOT": "${sourceDir}/.deps/onnxruntime-win-x64-1.31.1"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-ucrt64", "configurePreset": "windows-ucrt64", "jobs": 4 }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-ucrt64",
+      "configurePreset": "windows-ucrt64",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

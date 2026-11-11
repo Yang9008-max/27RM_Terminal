@@ -1,0 +1,38 @@
+[
+  {
+    "id": "protocol-2027",
+    "path": "D:\\MyTrain\\robomaster\\文档\\通信协议\\RoboMaster 2027 机甲大师高校系列赛通信协议 V1.0.0（20261029）.pdf",
+    "pdf_pages": 85,
+    "sha256": "109a5e2a82afd3f253a5ac15aef7bb5e0aa354c6b41e3a6ceca7fed889e619e1",
+    "extraction": "PyMuPDF per-page text; page markers are 1-based PDF indices",
+    "local_text": "D:\\MyTrain\\robomaster\\文档\\知识库\\27RMUL终端调研-20261111\\pages\\protocol-2027",
+    "checked_on": "2026-11-11"
+  },
+  {
+    "id": "rmul-rules-2027",
+    "path": "D:\\MyTrain\\robomaster\\文档\\比赛规则\\2027赛季\\高校联盟赛\\RoboMaster 2027 机甲大师高校联盟赛比赛规则手册 V1.0.0（20261015）.pdf",
+    "pdf_pages": 68,
+    "sha256": "a8fd7b7f6ea5212b9e4dfa590b478827992598d91912ed671653c8bdd9727fd6",
+    "extraction": "PyMuPDF per-page text; page markers are 1-based PDF indices",
+    "local_text": "D:\\MyTrain\\robomaster\\文档\\知识库\\27RMUL终端调研-20261111\\pages\\rmul-rules-2027",
+    "checked_on": "2026-11-11"
+  },
+  {
+    "id": "robot-spec-2027",
+    "path": "D:\\MyTrain\\robomaster\\文档\\比赛规则\\2027赛季\\通用规范\\RoboMaster 2027 机甲大师高校系列赛机器人制作规范手册V1.0.0（20261015）.pdf",
+    "pdf_pages": 91,
+    "sha256": "3287fe5f521f8801ce69632032ea17a9c8d8a099091558f58618cd7721154a3c",
+    "extraction": "PyMuPDF per-page text; page markers are 1-based PDF indices",
+    "local_text": "D:\\MyTrain\\robomaster\\文档\\知识库\\27RMUL终端调研-20261111\\pages\\robot-spec-2027",
+    "checked_on": "2026-11-11"
+  },
+  {
+    "id": "rmul-participant-2027",
+    "path": "D:\\MyTrain\\robomaster\\文档\\比赛规则\\2027赛季\\高校联盟赛\\RoboMaster 2027 机甲大师高校联盟赛参赛手册V1.0.0（20261015）.pdf",
+    "pdf_pages": 28,
+    "sha256": "969fb865b7dca28360325d198fd47a7158cb7c8cfe3e0fd6d51bc556b67b2950",
+    "extraction": "PyMuPDF per-page text; page markers are 1-based PDF indices",
+    "local_text": "D:\\MyTrain\\robomaster\\文档\\知识库\\27RMUL终端调研-20261111\\pages\\rmul-participant-2027",
+    "checked_on": "2026-11-11"
+  }
+]
