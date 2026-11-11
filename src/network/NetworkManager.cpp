@@ -1048,6 +1048,7 @@ void NetworkManager::processData(const QByteArray &data) {
 
 void NetworkManager::startMqtt(const QString &brokerUri,
                                const QString &clientId) {
+  if (m_gameData) m_gameData->resetGlobalUnitStatus();
   // 创建 MQTT 管理器
   if (!m_mqttManager) {
     m_mqttManager = new MqttManager(this);
@@ -1067,6 +1068,7 @@ void NetworkManager::startMqtt(const QString &brokerUri,
             // 启动 MQTT 消息日志会话
             MqttLogger::instance()->startSession();
           } else {
+            if (m_gameData) m_gameData->resetGlobalUnitStatus();
             MqttLogger::instance()->stopSession();
           }
         });
@@ -1219,7 +1221,11 @@ void NetworkManager::processMqttMessage(const QString &topic,
                         {QStringLiteral("total_damage_ally"),
                          static_cast<int>(msg.total_damage_ally())},
                         {QStringLiteral("total_damage_enemy"),
-                         static_cast<int>(msg.total_damage_enemy())}});
+                         static_cast<int>(msg.total_damage_enemy())},
+                        {QStringLiteral("total_CP_ally"), msg.has_total_cp_ally()
+                             ? QJsonValue(static_cast<qint64>(msg.total_cp_ally())) : QJsonValue(QJsonValue::Null)},
+                        {QStringLiteral("total_CP_enemy"), msg.has_total_cp_enemy()
+                             ? QJsonValue(static_cast<qint64>(msg.total_cp_enemy())) : QJsonValue(QJsonValue::Null)}});
         // 详细明文日志：打印所有字段
         QStringList rHp, rBul;
         for (int i = 0; i < msg.robot_health_size(); ++i) rHp << QString::number(msg.robot_health(i));
@@ -1230,7 +1236,7 @@ void NetworkManager::processMqttMessage(const QString &topic,
                               "enemy_base_hp=%6 enemy_base_status=%7 enemy_base_shield=%8 "
                               "enemy_outpost_hp=%9 enemy_outpost_status=%10 "
                               "robot_hp=[%11] robot_bullets=[%12] "
-                              "dmg_ally=%13 dmg_enemy=%14")
+                              "dmg_ally=%13 dmg_enemy=%14 cp_ally=%15 cp_enemy=%16")
                    .arg(msg.base_health()).arg(msg.base_status())
                    .arg(msg.base_shield()).arg(msg.outpost_health())
                    .arg(msg.outpost_status()).arg(msg.enemy_base_health())
@@ -1238,7 +1244,9 @@ void NetworkManager::processMqttMessage(const QString &topic,
                    .arg(msg.enemy_outpost_health()).arg(msg.enemy_outpost_status())
                    .arg(rHp.join(QStringLiteral(",")))
                    .arg(rBul.join(QStringLiteral(",")))
-                   .arg(msg.total_damage_ally()).arg(msg.total_damage_enemy());
+                   .arg(msg.total_damage_ally()).arg(msg.total_damage_enemy())
+                   .arg(msg.has_total_cp_ally() ? QString::number(msg.total_cp_ally()) : QStringLiteral("unknown"))
+                   .arg(msg.has_total_cp_enemy() ? QString::number(msg.total_cp_enemy()) : QStringLiteral("unknown"));
         // 统一交给 GameData 的状态入口处理。
         m_gameData->updateGlobalUnitStatus(msg);
       }

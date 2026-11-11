@@ -392,20 +392,24 @@ message GameStatus {
 }
 
 message GlobalUnitStatus {
-  uint32 base_health = 1;
-  uint32 base_status = 2;
-  uint32 base_shield = 3;
-  uint32 outpost_health = 4;
-  uint32 outpost_status = 5;
-  uint32 enemy_base_health = 6;
-  uint32 enemy_base_status = 7;
-  uint32 enemy_base_shield = 8;
-  uint32 enemy_outpost_health = 9;
-  uint32 enemy_outpost_status = 10;
+  // 2027 第一阶段：保留旧前哨字段名称（其迁移尚未完成），新增显式 presence。
+  optional uint32 base_health = 1;
+  optional uint32 base_status = 2;
+  optional uint32 base_shield = 3;
+  optional uint32 outpost_health = 4;
+  optional uint32 outpost_status = 5;
+  optional uint32 enemy_base_health = 6;
+  optional uint32 enemy_base_status = 7;
+  optional uint32 enemy_base_shield = 8;
+  optional uint32 enemy_outpost_health = 9;
+  optional uint32 enemy_outpost_status = 10;
+  // 2027 §2.2.4：己方 1/3/4/7、对方 1/3/4/7；不裁剪 4 号槽位。
   repeated uint32 robot_health = 11;
   repeated int32 robot_bullets = 12;
-  uint32 total_damage_ally = 13;
-  uint32 total_damage_enemy = 14;
+  optional uint32 total_damage_ally = 13;
+  optional uint32 total_damage_enemy = 14;
+  optional uint32 total_CP_ally = 15;
+  optional uint32 total_CP_enemy = 16;
 }
 
 message GlobalLogisticsStatus {

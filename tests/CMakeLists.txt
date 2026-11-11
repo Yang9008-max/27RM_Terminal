@@ -31,6 +31,10 @@ add_executable(test_game_data unit/test_game_data.cpp)
 target_link_libraries(test_game_data PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib)
 rm26_add_qt_test(TestGameData test_game_data)
 
+add_executable(test_rmul2027_data unit/test_rmul2027_data.cpp)
+target_link_libraries(test_rmul2027_data PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
+rm26_add_qt_test(TestRmul2027Data test_rmul2027_data)
+
 # 血条组件测试
 add_executable(test_health_bar unit/test_health_bar.cpp)
 target_link_libraries(test_health_bar PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib)

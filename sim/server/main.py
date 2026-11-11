@@ -329,6 +329,9 @@ async def referee_command(sid, data):
     elif cmd == "set_hp":
         # 设置机器人血量
         state_manager.set_robot_hp(data.get("robot_id"), data.get("hp"))
+    elif cmd == "set_control_points":
+        # value=null 清除下发；value=0 是有效控制度，不得当作缺失。
+        state_manager.set_control_points(data.get("team"), data.get("value"))
     elif cmd == "set_base_hp":
         # 设置基地血量
         team = _normalize_team_name(data.get("team", "red"))

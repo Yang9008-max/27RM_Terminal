@@ -223,7 +223,7 @@ bool robotConnectedForTab(const RobotData &robot) {
 }
 
 quint16 robotDisplayHpForPanels(const RobotData &robot) {
-  if (robot.hasTabGlobalSnapshot && robot.tabGlobalCurrentHP > 0) {
+  if (robot.hasTabGlobalSnapshot) {
     return robot.tabGlobalCurrentHP;
   }
   return robotConnectedForTab(robot) ? robot.currentHP : 0;
@@ -1401,7 +1401,7 @@ QVariantList GameData::getRedRobotsDataQml() const {
     if (robot.team != TeamColor::RED) continue;
     const bool isConnected = robotConnectedForTab(robot);
     const bool useGlobalHp =
-        robot.hasTabGlobalSnapshot && robot.tabGlobalCurrentHP > 0;
+        robot.hasTabGlobalSnapshot;
     const int maxHp = isConnected
                           ? static_cast<int>(robot.maxHP > 0
                                                  ? robot.maxHP
@@ -1457,7 +1457,7 @@ QVariantList GameData::getBlueRobotsDataQml() const {
     if (robot.team != TeamColor::BLUE) continue;
     const bool isConnected = robotConnectedForTab(robot);
     const bool useGlobalHp =
-        robot.hasTabGlobalSnapshot && robot.tabGlobalCurrentHP > 0;
+        robot.hasTabGlobalSnapshot;
     const int maxHp = isConnected
                           ? static_cast<int>(robot.maxHP > 0
                                                  ? robot.maxHP
@@ -2619,82 +2619,63 @@ QVariantList GameData::runeGroupDeltas() const {
   return list;
 }
 
+void GameData::resetGlobalUnitStatus() {
+  const bool hadControlPoints = m_hasRedControlPoints || m_hasBlueControlPoints;
+  m_redControlPoints = m_blueControlPoints = 0;
+  m_hasRedControlPoints = m_hasBlueControlPoints = false;
+  m_redRobotTotalHP = m_blueRobotTotalHP = 0;
+  for (auto &robot : m_robots) {
+    robot.hasTabGlobalSnapshot = false;
+    robot.tabGlobalCurrentHP = 0;
+  }
+  if (hadControlPoints) emit controlPointsChanged();
+  emitDataChanged();
+}
+
 void GameData::updateGlobalUnitStatus(const robomaster::GlobalUnitStatus &data) {
   const bool isBluePerspective = m_currentRobotId >= 100;
   const TeamColor allyTeam =
       isBluePerspective ? TeamColor::BLUE : TeamColor::RED;
   const TeamColor enemyTeam =
       isBluePerspective ? TeamColor::RED : TeamColor::BLUE;
-  const QList<int> compactAllyRoster =
-      isBluePerspective ? QList<int>{101, 102, 103} : QList<int>{1, 2, 3};
-  const QList<int> compactEnemyRoster =
-      isBluePerspective ? QList<int>{1, 2, 3} : QList<int>{101, 102, 103};
-  const QList<int> midAllyRoster =
-      isBluePerspective ? QList<int>{101, 102, 103, 104, 107}
-                        : QList<int>{1, 2, 3, 4, 7};
-  const QList<int> midEnemyRoster =
-      isBluePerspective ? QList<int>{1, 2, 3, 4, 7}
-                        : QList<int>{101, 102, 103, 104, 107};
-  const QList<int> extendedAllyRoster = isBluePerspective
-                                            ? QList<int>{101, 102, 103, 104, 106, 107}
-                                            : QList<int>{1, 2, 3, 4, 6, 7};
-  const QList<int> extendedEnemyRoster = isBluePerspective
-                                             ? QList<int>{1, 2, 3, 4, 6, 7}
-                                             : QList<int>{101, 102, 103, 104, 106, 107};
+  const QList<int> allyRoster = isBluePerspective ? QList<int>{101, 103, 104, 107}
+                                                 : QList<int>{1, 3, 4, 7};
+  const QList<int> enemyRoster = isBluePerspective ? QList<int>{1, 3, 4, 7}
+                                                  : QList<int>{101, 103, 104, 107};
 
-  const bool useExtendedRoster =
-      data.robot_health_size() == extendedAllyRoster.size() ||
-      data.robot_health_size() >=
-          (extendedAllyRoster.size() + extendedEnemyRoster.size());
-  const bool useMidRoster =
-      !useExtendedRoster &&
-      (data.robot_health_size() == midAllyRoster.size() ||
-       data.robot_health_size() >=
-           (midAllyRoster.size() + midEnemyRoster.size()));
-  const QList<int> allyRoster = useExtendedRoster
-                                    ? extendedAllyRoster
-                                    : (useMidRoster ? midAllyRoster
-                                                    : compactAllyRoster);
-  const QList<int> enemyRoster = useExtendedRoster
-                                     ? extendedEnemyRoster
-                                     : (useMidRoster ? midEnemyRoster
-                                                     : compactEnemyRoster);
-  const bool hasEnemySnapshot =
-      data.robot_health_size() > allyRoster.size() ||
-      data.enemy_base_health() > 0 || data.enemy_outpost_health() > 0 ||
-      data.enemy_base_status() > 0 || data.enemy_outpost_status() > 0 ||
-      data.total_damage_enemy() > 0;
-
-  for (auto &robot : m_robots) {
-    robot.hasTabGlobalSnapshot = false;
-    robot.tabGlobalCurrentHP = 0;
+  bool controlPointsChanged = false;
+  auto applyControlPoints = [&controlPointsChanged](quint32 value, quint32 &stored,
+                                                    bool &known) {
+    controlPointsChanged |= !known || stored != value;
+    stored = value;
+    known = true;
+  };
+  if (data.has_total_cp_ally()) {
+    applyControlPoints(data.total_cp_ally(),
+                       isBluePerspective ? m_blueControlPoints : m_redControlPoints,
+                       isBluePerspective ? m_hasBlueControlPoints : m_hasRedControlPoints);
+  }
+  if (data.has_total_cp_enemy()) {
+    applyControlPoints(data.total_cp_enemy(),
+                       isBluePerspective ? m_redControlPoints : m_blueControlPoints,
+                       isBluePerspective ? m_hasRedControlPoints : m_hasBlueControlPoints);
   }
 
-  updateBaseHP(allyTeam, static_cast<quint16>(data.base_health()));
-  updateBaseStatus(allyTeam, static_cast<quint8>(data.base_status()));
-  // 协议字段 base_shield -> BaseData.virtualShield (proto3 默认 0)
-  if (isBluePerspective) {
-    m_blueBase.virtualShield = static_cast<quint16>(data.base_shield());
-  } else {
-    m_redBase.virtualShield = static_cast<quint16>(data.base_shield());
+  // 其余机制仍沿用旧语义；稀疏包不能把未下发字段覆盖为默认0。
+  if (data.has_base_health()) updateBaseHP(allyTeam, static_cast<quint16>(data.base_health()));
+  if (data.has_base_status()) updateBaseStatus(allyTeam, static_cast<quint8>(data.base_status()));
+  if (data.has_base_shield()) {
+    (isBluePerspective ? m_blueBase : m_redBase).virtualShield = static_cast<quint16>(data.base_shield());
   }
-  updateOutpostHP(allyTeam, static_cast<quint16>(data.outpost_health()));
-  updateOutpostStatus(allyTeam, static_cast<quint8>(data.outpost_status()));
-
-  if (hasEnemySnapshot) {
-    updateBaseHP(enemyTeam, static_cast<quint16>(data.enemy_base_health()));
-    updateBaseStatus(enemyTeam, static_cast<quint8>(data.enemy_base_status()));
-    // 敌方虚拟护盾映射
-    if (isBluePerspective) {
-      m_redBase.virtualShield = static_cast<quint16>(data.enemy_base_shield());
-    } else {
-      m_blueBase.virtualShield = static_cast<quint16>(data.enemy_base_shield());
-    }
-    updateOutpostHP(enemyTeam,
-                    static_cast<quint16>(data.enemy_outpost_health()));
-    updateOutpostStatus(enemyTeam,
-                        static_cast<quint8>(data.enemy_outpost_status()));
+  if (data.has_outpost_health()) updateOutpostHP(allyTeam, static_cast<quint16>(data.outpost_health()));
+  if (data.has_outpost_status()) updateOutpostStatus(allyTeam, static_cast<quint8>(data.outpost_status()));
+  if (data.has_enemy_base_health()) updateBaseHP(enemyTeam, static_cast<quint16>(data.enemy_base_health()));
+  if (data.has_enemy_base_status()) updateBaseStatus(enemyTeam, static_cast<quint8>(data.enemy_base_status()));
+  if (data.has_enemy_base_shield()) {
+    (isBluePerspective ? m_redBase : m_blueBase).virtualShield = static_cast<quint16>(data.enemy_base_shield());
   }
+  if (data.has_enemy_outpost_health()) updateOutpostHP(enemyTeam, static_cast<quint16>(data.enemy_outpost_health()));
+  if (data.has_enemy_outpost_status()) updateOutpostStatus(enemyTeam, static_cast<quint8>(data.enemy_outpost_status()));
 
   auto applyRobotSnapshot = [this, &data](int topicIndex, int robotId) -> int {
     if (topicIndex >= data.robot_health_size()) {
@@ -2709,26 +2690,13 @@ void GameData::updateGlobalUnitStatus(const robomaster::GlobalUnitStatus &data) 
     const quint16 globalHp =
         static_cast<quint16>(data.robot_health(topicIndex));
     const quint16 prevHP = robot->currentHP;
-    const bool hasStaticConnection =
-        robot->isClientConnected || robot->isControllerConnected;
     robot->tabGlobalCurrentHP = globalHp;
     robot->currentRoundMaxHP = qMax(robot->currentRoundMaxHP, globalHp);
-    if (globalHp > 0 || !hasStaticConnection) {
-      robot->currentHP = globalHp;
-    }
+    robot->currentHP = globalHp;
     robot->lastUpdateTime = QDateTime::currentDateTime();
     robot->hasTabGlobalSnapshot = true;
 
-    if (topicIndex < data.robot_bullets_size()) {
-      const int bullets = std::max(0, data.robot_bullets(topicIndex));
-      if (robotId == 1 || robotId == 101) {
-        robot->allowedAmmo42mm = static_cast<quint16>(bullets);
-      } else {
-        robot->allowedAmmo17mm = static_cast<quint16>(bullets);
-      }
-    }
-
-    if (globalHp == 0 && !hasStaticConnection &&
+    if (globalHp == 0 &&
         robot->status != RobotStatus::OFFLINE) {
       robot->status = RobotStatus::DESTROYED;
     } else if (globalHp > 0 && robot->status == RobotStatus::DESTROYED) {
@@ -2744,38 +2712,41 @@ void GameData::updateGlobalUnitStatus(const robomaster::GlobalUnitStatus &data) 
     return globalHp;
   };
 
-  int allyTotalHp = 0;
-  const int allyRobotCount =
-      std::min(data.robot_health_size(), static_cast<int>(allyRoster.size()));
-  for (int i = 0; i < allyRobotCount; ++i) {
-    allyTotalHp += applyRobotSnapshot(i, allyRoster.at(i));
+  const bool validHealth = data.robot_health_size() == 8 &&
+      std::all_of(data.robot_health().begin(), data.robot_health().end(),
+                  [](quint32 hp) { return hp <= 65535; });
+  if (validHealth) {
+    int allyTotalHp = 0, enemyTotalHp = 0;
+    for (int i = 0; i < 4; ++i) {
+      allyTotalHp += applyRobotSnapshot(i, allyRoster.at(i));
+      enemyTotalHp += applyRobotSnapshot(i + 4, enemyRoster.at(i));
+    }
+    (isBluePerspective ? m_blueRobotTotalHP : m_redRobotTotalHP) = allyTotalHp;
+    (isBluePerspective ? m_redRobotTotalHP : m_blueRobotTotalHP) = enemyTotalHp;
+  } else if (data.robot_health_size() != 0) {
+    qWarning() << "[GlobalUnitStatus] ignored invalid health snapshot; expected 8 uint16-range slots, got"
+               << data.robot_health_size();
+  }
+  if (data.robot_bullets_size() == 4) {
+    for (int i = 0; i < 4; ++i) {
+      if (auto *robot = findRobotById(allyRoster.at(i))) {
+        const auto bullets = static_cast<quint16>(qBound(0, data.robot_bullets(i), 65535));
+        if (i == 0) robot->allowedAmmo42mm = bullets;
+        else robot->allowedAmmo17mm = bullets;
+      }
+    }
+  } else if (data.robot_bullets_size() != 0) {
+    qWarning() << "[GlobalUnitStatus] ignored invalid bullets snapshot; expected 4 slots, got"
+               << data.robot_bullets_size();
+  }
+  if (data.has_total_damage_ally()) {
+    (isBluePerspective ? m_blueTeamStats : m_redTeamStats).totalDamageDealt = data.total_damage_ally();
+  }
+  if (data.has_total_damage_enemy()) {
+    (isBluePerspective ? m_redTeamStats : m_blueTeamStats).totalDamageDealt = data.total_damage_enemy();
   }
 
-  int enemyTotalHp = 0;
-  for (int i = 0; hasEnemySnapshot && i < enemyRoster.size(); ++i) {
-    enemyTotalHp += applyRobotSnapshot(i + allyRoster.size(), enemyRoster.at(i));
-  }
-
-  if (isBluePerspective) {
-    m_blueRobotTotalHP = allyTotalHp;
-    if (hasEnemySnapshot) {
-      m_redRobotTotalHP = enemyTotalHp;
-    }
-    m_blueTeamStats.totalDamageDealt = data.total_damage_ally();
-    if (hasEnemySnapshot || data.total_damage_enemy() > 0) {
-      m_redTeamStats.totalDamageDealt = data.total_damage_enemy();
-    }
-  } else {
-    m_redRobotTotalHP = allyTotalHp;
-    if (hasEnemySnapshot) {
-      m_blueRobotTotalHP = enemyTotalHp;
-    }
-    m_redTeamStats.totalDamageDealt = data.total_damage_ally();
-    if (hasEnemySnapshot || data.total_damage_enemy() > 0) {
-      m_blueTeamStats.totalDamageDealt = data.total_damage_enemy();
-    }
-  }
-
+  if (controlPointsChanged) emit this->controlPointsChanged();
   emit myRobotUpdated();
   emitDataChanged();
   emit injuryStatsUpdated();
@@ -2878,6 +2849,7 @@ void GameData::applyOfficialGameStateSnapshot(GameStage stage,
   }
 
   if (roundChanged && stage != GameStage::SETTLEMENT) {
+    resetGlobalUnitStatus();
     for (auto &robot : m_robots) {
       robot.currentRoundMaxHP = 0;
     }

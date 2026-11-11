@@ -167,9 +167,9 @@ class StateManager:
         # 机器人 ID 顺序与 robot_health 列表索引保持一致
         default_robot_count = len(self.global_unit_status.get("robot_health", []))
         # 机器人 ID 列表：默认使用当前模拟器重点联调的 8 台机器人
-        # 红方: 1/3/6/7，蓝方: 101/103/106/107
+        # 2027 全局血量固定槽位：红方1/3/4/7，蓝方101/103/104/107。
         if default_robot_count == 8:
-            self.robot_ids = [1, 3, 6, 7, 101, 103, 106, 107]
+            self.robot_ids = [1, 3, 4, 7, 101, 103, 104, 107]
         else:
             # 兜底使用从 1 开始的连续 ID
             self.robot_ids = list(range(1, default_robot_count + 1))
@@ -439,7 +439,10 @@ class StateManager:
             "robot_level": [1] * 8,
             "robot_power": [0] * 8,
             "total_damage_red": 0,
-            "total_damage_blue": 0
+            "total_damage_blue": 0,
+            # None 表示不下发；可显式设为600开局或0用于归零验证。
+            "red_control_points": None,
+            "blue_control_points": None,
         }
 
     def _get_robot_fire_rate_limit(self, robot_id):
@@ -1585,6 +1588,14 @@ class StateManager:
             self.pending_game_result_end_reason = 1
             self.log("Referee", "比赛结束，进入结算阶段 (Stage 5)")
             self._enqueue_game_result()
+
+    def set_control_points(self, team, value):
+        if team not in self.TEAM_NAMES:
+            raise ValueError("Control point team must be red or blue")
+        if value is not None and (type(value) is not int or not 0 <= value <= 0xFFFFFFFF):
+            raise ValueError("Control points must be a uint32 integer or None")
+        with self.lock:
+            self.global_unit_status[f"{team}_control_points"] = value
 
     def set_robot_hp(self, robot_index, hp):
         with self.lock:

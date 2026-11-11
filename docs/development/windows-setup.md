@@ -40,6 +40,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/windows/build.ps1 -Tes
 
 本次安装不改变上游赛事协议。2027 赛季 RMUL 适配需另行实施。
 
+后续第一阶段数据适配与验收见 [2027 RMUL比赛数据](rmul2027-data.md)。原生编译的TEMP/TMP现设为项目内 `tmp/native-build`，避免系统临时目录权限影响GCC；这些设置只作用于当前脚本进程。
+
 ## 更新依赖
 
 已安装的环境可以运行：

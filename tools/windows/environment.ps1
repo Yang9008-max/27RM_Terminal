@@ -14,3 +14,8 @@ $env:QML2_IMPORT_PATH = $env:QML_IMPORT_PATH
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 $env:CCACHE_DIR = Join-Path $RepoRoot '.deps\ccache'
+# Native GCC uses Windows TEMP/TMP. Keep compiler scratch files in the workspace.
+$BuildTemp = Join-Path $RepoRoot 'tmp\native-build'
+New-Item -ItemType Directory -Force -Path $BuildTemp | Out-Null
+$env:TEMP = $BuildTemp
+$env:TMP = $BuildTemp

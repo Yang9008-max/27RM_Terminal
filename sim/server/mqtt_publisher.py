@@ -760,6 +760,8 @@ class MQTTPublisher:
                 log_dict[field.name] = [
                     cls._message_field_to_log_value(item) for item in value
                 ]
+            elif field.has_presence and not message.HasField(field.name):
+                log_dict[field.name] = None
             else:
                 log_dict[field.name] = cls._message_field_to_log_value(value)
         return log_dict
@@ -871,9 +873,7 @@ class MQTTPublisher:
         total_damage_blue = int(status.get("total_damage_blue", 0))
 
         is_blue_perspective = int(self.current_robot_id or 1) >= 100
-        # 己方和敌方各补齐到 5 台机器人，使客户端采用中型阵容（5+5），
-        # 避免把紧凑阵容（3+3）误判为仅己方的扩展阵容。
-        # 红方编号为 {1,2,3,4,7}，蓝方编号为 {101,102,103,104,107}。
+        # 2027 §2.2.4：固定己方1/3/4/7，再对方1/3/4/7。
         if is_blue_perspective:
             ally_base_health = blue_base_health
             ally_base_status = blue_base_status
@@ -925,17 +925,22 @@ class MQTTPublisher:
         msg.enemy_outpost_health = enemy_outpost_health
         msg.enemy_outpost_status = enemy_outpost_status
 
-        for hp in ally_robot_health:
-            msg.robot_health.append(int(hp))
+        if "robot_health" in status:
+            msg.robot_health.extend(ally_robot_health + enemy_robot_health)
 
-        for hp in enemy_robot_health:
-            msg.robot_health.append(int(hp))
-
-        for bullets in ally_robot_bullets:
-            msg.robot_bullets.append(int(bullets))
+        if "robot_bullets" in status:
+            msg.robot_bullets.extend(ally_robot_bullets)
 
         msg.total_damage_ally = total_damage_ally
         msg.total_damage_enemy = total_damage_enemy
+
+        ally_prefix, enemy_prefix = ("blue", "red") if is_blue_perspective else ("red", "blue")
+        ally_cp = status.get(f"{ally_prefix}_control_points")
+        enemy_cp = status.get(f"{enemy_prefix}_control_points")
+        if ally_cp is not None:
+            msg.total_CP_ally = ally_cp
+        if enemy_cp is not None:
+            msg.total_CP_enemy = enemy_cp
 
         self._publish("GlobalUnitStatus", msg.SerializeToString())
 
@@ -1131,8 +1136,8 @@ class MQTTPublisher:
     @staticmethod
     def _global_unit_protocol_robot_ids(team_name: str):
         if str(team_name).strip().lower() == "blue":
-            return [101, 102, 103, 104, 106, 107]
-        return [1, 2, 3, 4, 6, 7]
+            return [101, 103, 104, 107]
+        return [1, 3, 4, 7]
 
     @staticmethod
     def _global_unit_protocol_robot_aliases(protocol_robot_id: int):
@@ -1146,9 +1151,8 @@ class MQTTPublisher:
         robot_health = list(global_status.get("robot_health", []))
         robot_bullets = list(global_status.get("robot_bullets", []))
 
-        default_hp = int(
-            getattr(self.state_manager, "_default_robot_max_hp", 600) or 600
-        )
+        # 没有配置的角色保留0槽，不能制造一台满血机器人。
+        default_hp = 0
         health_by_robot_id = {}
         bullets_by_robot_id = {}
 

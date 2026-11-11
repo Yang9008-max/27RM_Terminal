@@ -642,6 +642,10 @@ Q_PROPERTY(int redTotalDamage READ redTotalDamage NOTIFY injuryStatsUpdated)
 Q_PROPERTY(int blueTotalDamage READ blueTotalDamage NOTIFY injuryStatsUpdated)
 Q_PROPERTY(int redRobotTotalHP READ redRobotTotalHP NOTIFY dataChanged)
 Q_PROPERTY(int blueRobotTotalHP READ blueRobotTotalHP NOTIFY dataChanged)
+Q_PROPERTY(quint32 redControlPoints READ redControlPoints NOTIFY controlPointsChanged)
+Q_PROPERTY(quint32 blueControlPoints READ blueControlPoints NOTIFY controlPointsChanged)
+Q_PROPERTY(bool hasRedControlPoints READ hasRedControlPoints NOTIFY controlPointsChanged)
+Q_PROPERTY(bool hasBlueControlPoints READ hasBlueControlPoints NOTIFY controlPointsChanged)
 
 // === ~ 面板伤害统计  ===
 Q_PROPERTY(
@@ -717,6 +721,7 @@ public:
       return;
     const bool teamChanged = (m_currentRobotId >= 100) != (robotId >= 100);
     m_currentRobotId = robotId;
+    resetGlobalUnitStatus();
     emit myRobotUpdated();
     if (teamChanged) {
       emit currentTeamEconomyChanged();
@@ -1004,6 +1009,12 @@ public:
   int blueTotalDamage() const;
   int redRobotTotalHP() const {return m_redRobotTotalHP;}
   int blueRobotTotalHP() const {return m_blueRobotTotalHP;}
+  quint32 redControlPoints() const { return m_redControlPoints; }
+  quint32 blueControlPoints() const { return m_blueControlPoints; }
+  bool hasRedControlPoints() const { return m_hasRedControlPoints; }
+  bool hasBlueControlPoints() const { return m_hasBlueControlPoints; }
+  // 清除上一连接/回合的全局快照有效性，不推测600初始控制度。
+  void resetGlobalUnitStatus();
   int redDartHits() const;
   int blueDartHits() const;
   int dartTotal() const;
@@ -1222,6 +1233,7 @@ signals:
   void robotDataUpdated(quint8 robotId);
   void myRobotUpdated(); // 新增信号：主视角机器人数据更新
   void baseHealthUpdated(TeamColor team);
+  void controlPointsChanged();
   void baseAttacked(TeamColor team);
   void redBaseAttackedChanged();
   void blueBaseAttackedChanged(); // 基地遭到攻击信号 (由事件触发)
@@ -1437,6 +1449,10 @@ private:
   // 总机器人血量
   int m_redRobotTotalHP = 0;
   int m_blueRobotTotalHP = 0;
+  quint32 m_redControlPoints = 0;
+  quint32 m_blueControlPoints = 0;
+  bool m_hasRedControlPoints = false;
+  bool m_hasBlueControlPoints = false;
 
   // 消息列表数据
   QVariantList m_systemMessages;

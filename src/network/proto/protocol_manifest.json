@@ -8,6 +8,15 @@
   },
   "canonical_schema": "src/network/proto/robomaster.proto",
   "alignment_status": "in-progress",
+  "migration_target": {
+    "name": "RoboMaster 2027 机甲大师高校系列赛通信协议",
+    "version": "1.0.0",
+    "published_on": "2026-10-29",
+    "stage": 1,
+    "implemented_scope": "GlobalUnitStatus #11/#12 fixed slots and #15/#16 control points; scalar presence",
+    "scope_document": "docs/development/rmul2027-data.md",
+    "remaining_gaps": "Other messages and legacy outpost field names/semantics still require migration"
+  },
   "verified_sections": [
     "2.2.3",
     "2.2.14",

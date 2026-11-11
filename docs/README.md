@@ -50,6 +50,9 @@
 
 ## 开发与验证
 
+- [2027 RMUL第一阶段数据链路](development/rmul2027-data.md)：控制度、血量槽位和模拟器到终端的验收。
+- [2027 RMUL Git工作流](development/git-workflow.md)：重大改动前的提交、标签和分支约定。
+
 - [客户端开发指南](rm26-client-dev-guide.md)：环境、构建、模块边界、测试、联调和排错；
 - [配置说明](getting-started/configuration.md)：本地 `config.json`、环境变量、两路视频和模拟器联调；
 - [可选比赛音效包](getting-started/optional-audio-pack.md)：自有语音的文件名、放置方式和授权门槛；
