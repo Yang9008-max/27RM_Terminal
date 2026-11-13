@@ -76,3 +76,7 @@ sim/.venv/Scripts/python.exe tools/verify_rmul2027_data.py
 - 原第一阶段的GameData验收也重新运行，红蓝双方14帧通过；证据：`tmp/rmul2027-data/20261113-122943-070359/result.json`。
 
 改动前基线标签为`rmul2027-pre-02-rmul-hud`，指向第一阶段完成提交`8d28c3f`；开发分支为`rmul2027/02-rmul-hud`。阶段完成后保存提交及`rmul2027-step-02-done`标签。截图和测试运行产物保留在本机tmp中，不纳入Git。
+
+### 真实桌面补充验收
+
+随后使用agent-desktop在2560×1600、200%缩放的Windows桌面实际登录红1、切换蓝3、改变模拟器血量和控制度、检查归零与页面切换。发现主窗口实际分配136逻辑像素时，原170高HUD的卡片遮住控制度；已通过设计面等比缩放修复，并新增1280×136回归断言。完整构建和CTest29/29、红蓝14帧MQTT→QML重新通过。实际截图、技能安装、鼠标/焦点路径限制及TAB长按未验收情况见[桌面操作报告](desktop-acceptance-20261113.md)。

@@ -17,3 +17,5 @@
 第一阶段已实现并验收：2027控制度、1/3/4/7血量槽位和模拟器到终端状态链路。实现与验收记录见 `docs/development/rmul2027-data.md`；此阶段完成不代表其他2027消息、RMUL完整规则或界面已迁移。后续阶段仍须按上述Git流程先保存版本再改动。
 
 第二阶段接入RMUL公共顶部栏：控制度、双方1/3/7血量和服务端比赛时钟；实现与验收入口见 `docs/development/rmul2027-hud.md`。当前功能分支为 `rmul2027/02-rmul-hud`。旧小地图、TAB、登录/兑换菜单、重装侧栏及通用模拟器的420秒规则引擎尚未迁移；顶部时钟如实显示接收值，不以300秒截断掩盖问题。
+
+后续真实桌面验收与136高HUD布局修正位于 `rmul2027/02-operator-check`，记录见 `docs/development/desktop-acceptance-20261113.md`，完成标签 `rmul2027-operator-20261113-done`。已安装并使用agent-desktop及agent-desktop-windows技能；TAB长按、真实图传和整机链路仍未验收。

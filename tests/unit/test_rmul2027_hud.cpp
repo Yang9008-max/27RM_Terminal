@@ -24,12 +24,12 @@ QString text(QQuickView &view, const QString &name) {
   auto *found = item(view.rootObject(), name);
   return found ? found->property("text").toString() : QStringLiteral("<missing>");
 }
-void load(QQuickView &view, GameData &data, int width = 1920) {
+void load(QQuickView &view, GameData &data, int width = 1920, int height = 170) {
   view.rootContext()->setContextProperty("gameData", &data);
   view.setResizeMode(QQuickView::SizeRootObjectToView);
   view.setColor(QColor("#09121c"));
   view.setSource(QUrl("qrc:/qml/TopInfoBar.qml"));
-  view.resize(width, 170);
+  view.resize(width, height);
   view.show();
   QCoreApplication::processEvents();
 }
@@ -125,14 +125,17 @@ private slots:
 
   void rosterAndLayout_data() {
     QTest::addColumn<int>("width");
-    QTest::newRow("1080p") << 1920;
-    QTest::newRow("720p") << 1280;
+    QTest::addColumn<int>("height");
+    QTest::newRow("1080p") << 1920 << 170;
+    QTest::newRow("720p") << 1280 << 170;
+    QTest::newRow("compact-desktop") << 1280 << 136;
   }
   void rosterAndLayout() {
     QFETCH(int, width);
+    QFETCH(int, height);
     GameData data;
     QQuickView view;
-    load(view, data, width);
+    load(view, data, width, height);
     QCOMPARE(view.status(), QQuickView::Ready);
     const QList<int> ids{1, 3, 7, 101, 103, 107};
     for (int id : ids) {
@@ -140,11 +143,22 @@ private slots:
       QTRY_VERIFY(card);
       const auto bounds = card->mapRectToScene(card->boundingRect());
       QVERIFY2(bounds.left() >= 0 && bounds.right() <= width &&
-               bounds.top() >= 0 && bounds.bottom() <= 170,
+               bounds.top() >= 0 && bounds.bottom() <= height,
                qPrintable(QStringLiteral("Card %1 outside %2px view").arg(id).arg(width)));
     }
     for (int id : {2, 4, 6, 102, 104, 106})
       QVERIFY(!item(view.rootObject(), QStringLiteral("robotCard%1").arg(id)));
+    for (const QString &team : {QStringLiteral("red"), QStringLiteral("blue")}) {
+      auto *cp = item(view.rootObject(), team + "ControlPointsText");
+      auto *card = item(view.rootObject(), team == "red" ? "robotCard1" : "robotCard101");
+      QVERIFY(cp && card);
+      QVERIFY2(cp->mapRectToScene(cp->boundingRect()).bottom() <=
+                   card->mapRectToScene(card->boundingRect()).top(),
+               "Control points are covered by robot cards in the compact desktop HUD");
+    }
+    auto *phase = item(view.rootObject(), "matchPhaseText");
+    QVERIFY(phase);
+    QVERIFY(phase->mapRectToScene(phase->boundingRect()).bottom() <= height);
   }
 
   void testSimulatorMqttFrames() {
