@@ -2628,6 +2628,8 @@ void GameData::resetGlobalUnitStatus() {
   const bool hadControlPoints = m_hasRedControlPoints || m_hasBlueControlPoints;
   m_redControlPoints = m_blueControlPoints = 0;
   m_hasRedControlPoints = m_hasBlueControlPoints = false;
+  m_redSettlementDamage.reset();
+  m_blueSettlementDamage.reset();
   m_redRobotTotalHP = m_blueRobotTotalHP = 0;
   for (auto &robot : m_robots) {
     robot.hasTabGlobalSnapshot = false;
@@ -2636,6 +2638,7 @@ void GameData::resetGlobalUnitStatus() {
     emit robotDataUpdated(robot.robotId);
   }
   if (hadControlPoints) emit controlPointsChanged();
+  emit settlementChanged();
   emitDataChanged();
 }
 
@@ -2748,11 +2751,14 @@ void GameData::updateGlobalUnitStatus(const robomaster::GlobalUnitStatus &data) 
   }
   if (data.has_total_damage_ally()) {
     (isBluePerspective ? m_blueTeamStats : m_redTeamStats).totalDamageDealt = data.total_damage_ally();
+    (isBluePerspective ? m_blueSettlementDamage : m_redSettlementDamage) = data.total_damage_ally();
   }
   if (data.has_total_damage_enemy()) {
     (isBluePerspective ? m_redTeamStats : m_blueTeamStats).totalDamageDealt = data.total_damage_enemy();
+    (isBluePerspective ? m_redSettlementDamage : m_blueSettlementDamage) = data.total_damage_enemy();
   }
 
+  emit settlementChanged();
   if (controlPointsChanged) emit this->controlPointsChanged();
   emit myRobotUpdated();
   emitDataChanged();
@@ -2798,9 +2804,13 @@ const OutpostData &GameData::getOutpostByTeam(TeamColor team) const {
 
 //比赛状态协议的统一落点（重置逻辑在此函数中）
 void GameData::resetMatchStatus() {
-  if (!m_hasMatchStatus) return;
+  m_officialWinner = m_officialEndReason = 255;
+  m_hasStageElapsed = false;
+  m_hasBattleScoreBaseline = false;
+  const bool wasValid = m_hasMatchStatus;
   m_hasMatchStatus = false;
-  emit matchStatusValidityChanged();
+  emit settlementChanged();
+  if (wasValid) emit matchStatusValidityChanged();
 }
 
 void GameData::applyOfficialGameStateSnapshot(GameStage stage,
@@ -2816,6 +2826,16 @@ void GameData::applyOfficialGameStateSnapshot(GameStage stage,
   const bool advancedRound =
       currentRound > 0 && m_gameState.currentRound < currentRound;
   const bool stageChanged = (m_gameState.gameProgress != stage);
+  if (stage != GameStage::SETTLEMENT || stageChanged ||
+      (currentRound > 0 && previousRound != currentRound)) {
+    m_officialWinner = m_officialEndReason = 255;
+  }
+  if ((stageChanged && stage != GameStage::SETTLEMENT) ||
+      (currentRound > 0 && previousRound != currentRound)) {
+    m_gameState.stageElapsed = 0;
+    m_hasStageElapsed = false;
+  }
+
   const bool timeChanged = (m_gameState.gameTime != remainingTime);
   const bool scoreChanged =
       (m_gameState.redScore != redScore || m_gameState.blueScore != blueScore);
@@ -2861,7 +2881,7 @@ void GameData::applyOfficialGameStateSnapshot(GameStage stage,
              << "newStage=" << static_cast<int>(stage);
   }
 
-  if (roundChanged && stage != GameStage::SETTLEMENT) {
+  if (roundChanged || (previousStage == GameStage::SETTLEMENT && stageChanged)) {
     resetGlobalUnitStatus();
     for (auto &robot : m_robots) {
       robot.currentRoundMaxHP = 0;
@@ -3142,17 +3162,40 @@ void GameData::updateGameState(const robomaster::GameInfo &data) {
   notifyPeriodicRewards(previousStage, previousGameTime);
 }
 //MQTT GameStatus更新
-void GameData::updateGameStatus(const robomaster::GameStatus &data){
-    const GameStage previousStage = m_gameState.gameProgress;
-    const int previousGameTime = m_gameState.gameTime;
-    applyOfficialGameStateSnapshot(
-        static_cast<GameStage>(data.current_stage()),
-        static_cast<quint16>(data.stage_countdown_sec()),
-        static_cast<quint16>(data.red_score()),
-        static_cast<quint16>(data.blue_score()),
-        static_cast<quint8>(data.current_round()),
-        data.is_paused());
-    notifyPeriodicRewards(previousStage, previousGameTime);
+void GameData::updateGameStatus(const robomaster::GameStatus &data) {
+  // The optional result is authoritative only within a settlement snapshot.
+  // Sparse snapshots retain known fields in this session/round; 255 explicitly
+  // invalidates a result, and a fresh session/round cannot inherit one.
+  if (data.has_current_stage() && data.current_stage() > 5) return;
+  const GameStage previousStage = m_gameState.gameProgress;
+  const int previousGameTime = m_gameState.gameTime;
+  const auto stage = data.has_current_stage()
+      ? static_cast<GameStage>(data.current_stage()) : previousStage;
+  applyOfficialGameStateSnapshot(
+      stage,
+      data.has_stage_countdown_sec() ? static_cast<quint16>(qBound(0, data.stage_countdown_sec(), 65535)) : m_gameState.gameTime,
+      data.has_red_score() ? static_cast<quint16>(qMin(data.red_score(), 65535u)) : m_gameState.redScore,
+      data.has_blue_score() ? static_cast<quint16>(qMin(data.blue_score(), 65535u)) : m_gameState.blueScore,
+      data.has_current_round() ? static_cast<quint8>(qBound(1u, data.current_round(), 255u)) : m_gameState.currentRound,
+      data.has_is_paused() ? data.is_paused() : m_gameState.isPaused);
+  if (data.has_stage_elapsed_sec()) {
+    m_hasStageElapsed = data.stage_elapsed_sec() >= 0 && data.stage_elapsed_sec() <= 65535;
+    if (m_hasStageElapsed) m_gameState.stageElapsed = static_cast<quint16>(data.stage_elapsed_sec());
+  }
+  const quint8 previousWinner = m_officialWinner;
+  if (stage == GameStage::SETTLEMENT) {
+    if (data.has_game_result()) {
+      m_officialWinner = data.game_result() <= 2 ? static_cast<quint8>(data.game_result()) : 255;
+    }
+    if (data.has_end_reason()) {
+      m_officialEndReason = data.end_reason() >= 1 && data.end_reason() <= 7
+          ? static_cast<quint8>(data.end_reason()) : 255;
+    }
+  }
+  emit settlementChanged();
+  if (determineWinner() != 255 && previousWinner != m_officialWinner)
+    emit gameResultReceived(m_officialWinner);
+  notifyPeriodicRewards(previousStage, previousGameTime);
 }
 
 void GameData::updateGlobalLogisticsStatus(
@@ -3415,38 +3458,38 @@ void GameData::updateBuff(const robomaster::Buff &data) {
 
 
 void GameData::processGameResult(quint8 winner) {
+  // Legacy UDP/Event result carries no round identity or end reason. It cannot
+  // override GameStatus, end a battle early, or resurrect a previous result.
   Q_UNUSED(winner);
-
-  // GameStatus 是官方阶段和比分真相源。GameResult 事件可能早于携带最终
-  // 分数的结算快照到达，不能抢先把阶段改成 SETTLEMENT。
-  m_gameState.gameEnded = true;
-  m_gameState.lastUpdateTime = QDateTime::currentDateTime();
-
-  if (m_gameState.gameProgress == GameStage::SETTLEMENT) {
-    emit gameResultReceived(determineWinner());
-  }
-
-  // 同步触发界面更新信号
-  emit gameStateUpdated();
-  emitDataChanged();
 }
 
-// 根据战斗阶段起点与结算阶段当前比分的增量判定胜利方。
-// 返回值：0=平局,1=红方,2=蓝方
 quint8 GameData::determineWinner() const {
-  if (m_hasBattleScoreBaseline) {
-    const int redDelta = redRoundScoreDelta();
-    const int blueDelta = blueRoundScoreDelta();
-    if (redDelta != blueDelta) {
-      return redDelta > blueDelta ? 1 : 2;
-    }
-    return 0;
-  }
+  return m_hasMatchStatus && m_gameState.gameProgress == GameStage::SETTLEMENT
+      ? m_officialWinner : 255;
+}
 
-  // 基线丢失时的回退：使用绝对分数判定（适用于客户端在战斗中后连接等场景）
-  if (m_gameState.redScore > m_gameState.blueScore) return 1;
-  if (m_gameState.blueScore > m_gameState.redScore) return 2;
-  return 0;
+RmulSettlementSnapshot GameData::settlementSnapshot() const {
+  RmulSettlementSnapshot snapshot;
+  snapshot.inSettlement = m_hasMatchStatus && m_gameState.gameProgress == GameStage::SETTLEMENT;
+  snapshot.winner = determineWinner();
+  snapshot.endReason = snapshot.inSettlement ? m_officialEndReason : 255;
+  snapshot.round = m_gameState.currentRound;
+  snapshot.redScore = m_gameState.redScore;
+  snapshot.blueScore = m_gameState.blueScore;
+  if (m_hasMatchStatus && m_hasStageElapsed) snapshot.elapsed = m_gameState.stageElapsed;
+  if (m_hasRedControlPoints) snapshot.redControlPoints = m_redControlPoints;
+  if (m_hasBlueControlPoints) snapshot.blueControlPoints = m_blueControlPoints;
+  snapshot.redDamage = m_redSettlementDamage;
+  snapshot.blueDamage = m_blueSettlementDamage;
+  const std::array<int, 3> roster{1, 3, 7};
+  for (size_t i = 0; i < roster.size(); ++i) {
+    for (const auto &robot : m_robots) {
+      if (!robot.hasTabGlobalSnapshot) continue;
+      if (robot.robotId == roster[i]) snapshot.redHealth[i] = robot.tabGlobalCurrentHP;
+      if (robot.robotId == roster[i] + 100) snapshot.blueHealth[i] = robot.tabGlobalCurrentHP;
+    }
+  }
+  return snapshot;
 }
 
 void GameData::updateRadarMarkData(const robomaster::RadarMarkData &data) {

@@ -821,10 +821,10 @@ class MQTTPublisher:
             msg.game_result = 255
             msg.end_reason = 255
         else:
-            winner = int(result.get("winner", 0))
-            msg.game_result = winner if winner in (0, 1, 2) else 0
-            end_reason = int(result.get("end_reason", 1))
-            msg.end_reason = max(0, min(255, end_reason))
+            winner = int(result.get("winner", 255))
+            msg.game_result = winner if winner in (0, 1, 2) else 255
+            end_reason = int(result.get("end_reason", 255))
+            msg.end_reason = end_reason if msg.game_result != 255 and 1 <= end_reason <= 7 else 255
 
         self._publish("GameStatus", msg.SerializeToString())
 

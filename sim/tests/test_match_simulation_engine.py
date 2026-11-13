@@ -74,12 +74,12 @@ class MatchSimulationEngineTest(unittest.TestCase):
         self.assertEqual(frame["current_stage"], 5)
         self.assertEqual(frame["remaining_sec"], 0.0)
 
-    def test_full_mode_uses_420_second_duration(self):
+    def test_full_mode_uses_300_second_battle_plus_countdown(self):
         status = self.start(mode="full")
-        self.assertEqual(status["duration_sec"], 420.0)
-        self.tick_at(419.9)
+        self.assertEqual(status["duration_sec"], 305.0)
+        self.tick_at(304.9)
         self.assertEqual(self.engine.get_status()["status"], "running")
-        self.tick_at(420.0)
+        self.tick_at(305.0)
         self.assertEqual(self.engine.get_status()["status"], "completed")
 
     def test_pause_freezes_time_and_resume_uses_new_clock_baseline(self):
@@ -187,8 +187,8 @@ class MatchSimulationEngineTest(unittest.TestCase):
         self.start(mode="quick")
         self.tick_at(45.0)
         configured = self.engine.control("configure", mode="full", speed=2.0)
-        self.assertEqual(configured["duration_sec"], 420.0)
-        self.assertAlmostEqual(configured["elapsed_sec"], 210.0, places=2)
+        self.assertEqual(configured["duration_sec"], 305.0)
+        self.assertAlmostEqual(configured["elapsed_sec"], 152.5, places=2)
         self.assertEqual(configured["speed"], 2.0)
 
     def test_state_snapshot_contains_simulation_status(self):

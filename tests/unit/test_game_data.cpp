@@ -214,171 +214,22 @@ private slots:
     QCOMPARE(gameData.getGameTime(), 300);
   }
 
-  void testDetermineWinnerUsesBattleToSettlementScoreDelta() {
-    GameData gameData;
-
+  void testScoreDeltaIsSeriesMetadataNotResult() {
+    GameData data;
     robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
+    status.set_current_stage(4);
     status.set_red_score(2);
     status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
+    data.updateGameStatus(status);
+    status.set_current_stage(5);
     status.set_red_score(3);
-    status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    QCOMPARE(gameData.redRoundScoreDelta(), 1);
-    QCOMPARE(gameData.blueRoundScoreDelta(), 0);
-    QCOMPARE(gameData.determineWinner(), quint8(1));
-  }
-
-  void testDetermineWinnerIgnoresAbsoluteScoreLead() {
-    GameData gameData;
-
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
-    status.set_red_score(4);
-    status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_red_score(4);
-    status.set_blue_score(2);
-    gameData.updateGameStatus(status);
-
-    QCOMPARE(gameData.redRoundScoreDelta(), 0);
-    QCOMPARE(gameData.blueRoundScoreDelta(), 1);
-    QCOMPARE(gameData.determineWinner(), quint8(2));
-  }
-
-  void testDetermineWinnerDrawsWhenScoreDeltaEqual() {
-    GameData gameData;
-
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
-    status.set_red_score(2);
-    status.set_blue_score(2);
-    gameData.updateGameStatus(status);
-
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_red_score(3);
-    status.set_blue_score(3);
-    gameData.updateGameStatus(status);
-
-    QCOMPARE(gameData.determineWinner(), quint8(0));
-  }
-
-  void testDetermineWinnerFallbackToAbsoluteScoreWhenBaselineMissing() {
-    GameData gameData;
-    // 从未进入 BATTLE 阶段，基线未设置
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_current_round(1);
-    status.set_red_score(5);
-    status.set_blue_score(3);
-    gameData.updateGameStatus(status);
-
-    // 基线丢失时应回退到绝对分数判定：红方 5 > 蓝方 3
-    QCOMPARE(gameData.determineWinner(), quint8(1));
-  }
-
-  void testDetermineWinnerFallbackDrawWhenBaselineMissingAndScoreEqual() {
-    GameData gameData;
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_current_round(1);
-    status.set_red_score(3);
-    status.set_blue_score(3);
-    gameData.updateGameStatus(status);
-
-    QCOMPARE(gameData.determineWinner(), quint8(0));
-  }
-
-  void testBaselinePreservedInSettlementOnRoundChange() {
-    GameData gameData;
-
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
-    status.set_red_score(2);
-    status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    // 进入结算阶段，同时回合数增加（模拟引擎结算时发送 round+1）
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_current_round(2);
-    status.set_red_score(3);
-    status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    // 基线应保留，增量为 1:0，红方胜
-    QCOMPARE(gameData.determineWinner(), quint8(1));
-  }
-
-  void testProcessGameResultEmitsScoreDeltaWinner() {
-    GameData gameData;
-
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
-    status.set_red_score(1);
-    status.set_blue_score(1);
-    gameData.updateGameStatus(status);
-
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_red_score(1);
-    status.set_blue_score(2);
-    gameData.updateGameStatus(status);
-
-    QSignalSpy resultSpy(&gameData, &GameData::gameResultReceived);
-    gameData.processGameResult(0);
-
-    QCOMPARE(resultSpy.count(), 1);
-    QCOMPARE(resultSpy.takeFirst().at(0).toUInt(), uint(2));
-  }
-
-  void testGameResultEventDoesNotPreemptSettlementScoreSnapshot() {
-    GameData gameData;
-
-    robomaster::GameStatus status;
-    status.set_current_stage(robomaster::GameStage::STAGE_BATTLE);
-    status.set_stage_countdown_sec(300);
-    status.set_current_round(1);
-    status.set_red_score(0);
-    status.set_blue_score(0);
-    gameData.updateGameStatus(status);
-
-    QSignalSpy resultSpy(&gameData, &GameData::gameResultReceived);
-    gameData.processGameResult(0);
-
-    QCOMPARE(resultSpy.count(), 0);
-    QCOMPARE(gameData.getCurrentStage(), GameStage::BATTLE);
-
-    status.set_current_stage(robomaster::GameStage::STAGE_SETTLEMENT);
-    status.set_stage_countdown_sec(0);
-    status.set_red_score(1);
-    status.set_blue_score(0);
-    gameData.updateGameStatus(status);
-
-    QCOMPARE(gameData.redRoundScoreDelta(), 1);
-    QCOMPARE(gameData.blueRoundScoreDelta(), 0);
-    QCOMPARE(gameData.determineWinner(), quint8(1));
+    data.updateGameStatus(status);
+    QCOMPARE(data.redRoundScoreDelta(), 1);
+    QCOMPARE(data.blueRoundScoreDelta(), 0);
+    QCOMPARE(data.determineWinner(), quint8(255));
+    status.set_game_result(2);
+    data.updateGameStatus(status);
+    QCOMPARE(data.determineWinner(), quint8(2));
   }
 
   void testGlobalSpecialMechanismTriggersAlertOnceAtOneSecond() {

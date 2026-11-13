@@ -19,3 +19,5 @@
 第二阶段接入RMUL公共顶部栏：控制度、双方1/3/7血量和服务端比赛时钟；实现与验收入口见 `docs/development/rmul2027-hud.md`。当前功能分支为 `rmul2027/02-rmul-hud`。旧小地图、TAB、登录/兑换菜单、重装侧栏及通用模拟器的420秒规则引擎尚未迁移；顶部时钟如实显示接收值，不以300秒截断掩盖问题。
 
 后续真实桌面验收与136高HUD布局修正位于 `rmul2027/02-operator-check`，记录见 `docs/development/desktop-acceptance-20261113.md`，完成标签 `rmul2027-operator-20261113-done`。已安装并使用agent-desktop及agent-desktop-windows技能；TAB长按、真实图传和整机链路仍未验收。
+
+第三阶段位于 `rmul2027/03-settlement`：模拟器按RMUL控制度→攻击伤害→1/3/7血量→平局裁决；客户端仅消费GameStatus官方结果；结算面板替换为双方各1/3/7三车。模拟器战斗时钟已改为300秒，完整演示含5秒倒计时共305秒。旧复活公式、控制区/阵亡自动扣分和其他旧页面仍未迁移。验收入口 `tools/verify_rmul2027_data.py --settlement`，记录及规则边界见 `docs/development/rmul2027-settlement.md`。运行主窗口集成测试时应停止独立模拟器，避免旧测试自动连接本地3333端口而接收外部阶段广播。

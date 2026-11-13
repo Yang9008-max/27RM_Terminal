@@ -112,7 +112,7 @@ class StateManager:
         }
         self.sentry_ctrl_result_queue = []
         self.last_game_result = {
-            "winner": 0,
+            "winner": 255,
             "winner_label": "未结算",
             "reason": "",
             "end_reason": 255,
@@ -469,7 +469,7 @@ class StateManager:
             1: 180,
             2: 15,
             3: 5,
-            4: 420,
+            4: 300,
             5: 0,
         }
         try:
@@ -711,14 +711,14 @@ class StateManager:
                             self.game_status["stage_elapsed_sec"] = 0
                             self.log("Referee", "自动进入五秒倒计时 (Stage 3)")
                         elif stage == 3:  # 五秒倒计时结束 -> 比赛开始
+                            self._begin_rmul_battle_locked()
                             self.game_status["current_stage"] = 4
-                            self.game_status["stage_countdown_sec"] = 420
+                            self.game_status["stage_countdown_sec"] = 300
                             self.game_status["stage_elapsed_sec"] = 0
                             self.log("Referee", "比赛开始! (Stage 4)")
                         elif stage == 4:  # 比赛时间结束 -> 结算
                             self.game_status["current_stage"] = 5
                             self.game_status["stage_countdown_sec"] = 0
-                            self.game_status["stage_elapsed_sec"] = 0
                             self.game_status["is_paused"] = False
                             self.log("Referee", "比赛时间结束，进入结算阶段 (Stage 5)")
                             self.pending_game_result_reason = "比赛时间结束"
@@ -929,8 +929,9 @@ class StateManager:
                 self.log("Referee", "进入五秒倒计时 (Stage 3)")
             elif self.game_status["current_stage"] == 3:
                 # 五秒倒计时 -> 比赛中
+                self._begin_rmul_battle_locked()
                 self.game_status["current_stage"] = 4  # 比赛中
-                self.game_status["stage_countdown_sec"] = 420  # 7分钟比赛
+                self.game_status["stage_countdown_sec"] = 300  # RMUL五分钟比赛
                 self.game_status["stage_elapsed_sec"] = 0
                 self.log("Referee", "比赛开始! (Stage 4)")
             elif self.game_status["current_stage"] == 5:
@@ -965,8 +966,9 @@ class StateManager:
     def skip_to_battle(self):
         with self.lock:
             previous_stage = int(self.game_status.get("current_stage", 0))
+            self._begin_rmul_battle_locked()
             self.game_status["current_stage"] = 4
-            self.game_status["stage_countdown_sec"] = 420
+            self.game_status["stage_countdown_sec"] = 300
             self.game_status["stage_elapsed_sec"] = 0
             self.game_status["is_paused"] = False
             self.log("Referee", f"Skip to battle stage: {previous_stage} -> 4")
@@ -977,6 +979,7 @@ class StateManager:
             self.game_status["red_score"] = 0
             self.game_status["blue_score"] = 0
         self.global_logistics_status = self._create_global_logistics_status_state()
+        self.global_unit_status.update(red_control_points=None, blue_control_points=None)
         self.game_status["stage_countdown_sec"] = self._stage_default_countdown(
             self.game_status.get("current_stage", 0)
         )
@@ -1074,7 +1077,7 @@ class StateManager:
         self.custom_byte_block_form = self._create_custom_byte_block_form_state()
         self.custom_byte_block_hex = ""
         self.last_game_result = {
-            "winner": 0,
+            "winner": 255,
             "winner_label": "未结算",
             "reason": "",
             "end_reason": 255,
@@ -1582,7 +1585,6 @@ class StateManager:
         with self.lock:
             self.game_status["current_stage"] = 5  # 结算阶段
             self.game_status["stage_countdown_sec"] = 0
-            self.game_status["stage_elapsed_sec"] = 0
             self.game_status["is_paused"] = False
             self.pending_game_result_reason = "裁判手动结束比赛"
             self.pending_game_result_end_reason = 1
@@ -1596,6 +1598,7 @@ class StateManager:
             raise ValueError("Control points must be a uint32 integer or None")
         with self.lock:
             self.global_unit_status[f"{team}_control_points"] = value
+            self._check_rmul_control_points_locked()
 
     def set_robot_hp(self, robot_index, hp):
         with self.lock:
@@ -1613,6 +1616,8 @@ class StateManager:
                     self._record_robot_damage_locked(
                         robot_index, old_hp - next_hp, damage_key="penalty_damage"
                     )
+                if self.game_status["current_stage"] == 5:
+                    self._enqueue_game_result()
                 self.log("Referee", f"Set Robot {robot_index} HP: {old_hp} -> {hp}")
                 # HP 由正数变为 0：入队击杀/阵亡事件（不依赖比赛阶段），并尝试触发复活
                 if old_hp > 0 and next_hp <= 0:
@@ -1869,17 +1874,18 @@ class StateManager:
                 else max(0, int(countdown_sec))
             )
 
+            if next_stage == 4 and previous_stage != 4:
+                self._begin_rmul_battle_locked()
             self.game_status["current_stage"] = next_stage
             self.game_status["stage_countdown_sec"] = next_countdown
             self.game_status["is_paused"] = False
             if next_stage == 4:
-                self.game_status["stage_elapsed_sec"] = max(0, 420 - next_countdown)
-            else:
+                self.game_status["stage_elapsed_sec"] = max(0, 300 - next_countdown)
+            elif next_stage != 5:
                 self.game_status["stage_elapsed_sec"] = 0
-                if next_stage != 5:
-                    self.pending_game_result_reason = ""
-                    self.pending_game_result_end_reason = 255
-                    self._game_result_enqueued = False
+                self.pending_game_result_reason = ""
+                self.pending_game_result_end_reason = 255
+                self._game_result_enqueued = False
 
             self.log(
                 "Referee",
@@ -1924,6 +1930,8 @@ class StateManager:
                 value = max(0, int(encryption_level))
                 self.global_logistics_status[key] = value
                 updates.append(f"encryption_level={value}")
+            if self.game_status["current_stage"] == 5:
+                self._enqueue_game_result()
             if updates:
                 self.log(
                     "Referee",
@@ -1938,7 +1946,7 @@ class StateManager:
 
             current_stage = int(self.game_status.get("current_stage", 0))
             if current_stage == 4:
-                self.game_status["stage_elapsed_sec"] = max(0, 420 - next_value)
+                self.game_status["stage_elapsed_sec"] = max(0, 300 - next_value)
 
             self.log("Referee", f"Set Stage Countdown: {previous} -> {next_value}")
 
@@ -2436,6 +2444,12 @@ class StateManager:
     ):
         """将一帧 10 Hz 演示数据原子写入全部共享比赛状态。"""
         with self.lock:
+            # A CP-zero settlement must survive subsequent legacy demo frames.
+            if self.game_status["current_stage"] == 5 and self._game_result_enqueued:
+                if simulation_status is not None:
+                    self.match_simulation_status = dict(simulation_status)
+                    self._match_simulation_clock_active = False
+                return
             if positions is not None:
                 if len(positions) != len(self.positions):
                     raise ValueError("simulation position count does not match robot count")
@@ -2518,6 +2532,8 @@ class StateManager:
 
             previous_stage = int(self.game_status.get("current_stage", 0))
             next_stage = max(0, min(5, int(current_stage)))
+            if next_stage in (4, 5) and previous_stage not in (4, 5):
+                self._begin_rmul_battle_locked()
             self.game_status["current_stage"] = next_stage
             self.game_status["stage_countdown_sec"] = max(0, int(stage_countdown_sec))
             self.game_status["stage_elapsed_sec"] = max(0, int(stage_elapsed_sec))
@@ -2962,56 +2978,71 @@ class StateManager:
                 "currentRobotId": int(self.current_robot_id),
             }
 
-    def _determine_winner(self):
-        """返回 0 平局 / 1 红方 / 2 蓝方，遵循官方判定优先级"""
-        gs = self.game_status
+    def _begin_rmul_battle_locked(self):
+        self.global_unit_status.update(red_control_points=600, blue_control_points=600)
+        for team in self.TEAM_NAMES:
+            self.global_unit_status["total_damage_" + team] = 0
+            self.global_logistics_status[team + "_total_damage"] = 0
+        self._game_result_enqueued = False
+        self.game_result_queue.clear()
+        self.last_game_result = {
+            "winner": 255, "winner_label": "未结算", "reason": "",
+            "end_reason": 255,
+            "red_score": int(self.game_status.get("red_score", 0)),
+            "blue_score": int(self.game_status.get("blue_score", 0)),
+        }
+
+    def _check_rmul_control_points_locked(self):
+        stage = self.game_status["current_stage"]
         gu = self.global_unit_status
+        values = [gu.get(team + "_control_points") for team in self.TEAM_NAMES]
+        if stage == 4 and all(v is not None for v in values) and 0 in values:
+            self.game_status["current_stage"] = 5
+            self.game_status["stage_countdown_sec"] = 0
+            self.game_status["is_paused"] = False
+            self.pending_game_result_reason = "控制度归零"
+        if self.game_status["current_stage"] == 5:
+            self._enqueue_game_result()
 
-        # --- 基地血量优先 ---
-        red_base = int(gu.get("red_base_health", gu.get("base_health", 0)))
-        blue_base = int(gu.get("blue_base_health", gu.get("base_health", 0)))
-        if red_base != blue_base:
-            return 1 if red_base > blue_base else 2
+    def _adjudicate_rmul(self):
+        """2027 RMUL PDF39: CP > attack damage > 1/3/7 HP > draw.
 
-        # --- 前哨站判定 ---
-        red_outpost_hp = int(gu.get("red_outpost_health", gu.get("outpost_health", 0)))
-        blue_outpost_hp = int(gu.get("blue_outpost_health", gu.get("outpost_health", 0)))
-        red_outpost_dead = bool(gu.get("red_outpost_destroyed", red_outpost_hp <= 0))
-        blue_outpost_dead = bool(gu.get("blue_outpost_destroyed", blue_outpost_hp <= 0))
+        Unknown CP, simultaneous zero, and incomplete tie-break data have no
+        adjudication. They must never award a fabricated win or draw.
+        """
+        gu = self.global_unit_status
+        red, blue = (gu.get(t + "_control_points") for t in self.TEAM_NAMES)
+        if any(type(v) is not int or not 0 <= v <= 0xFFFFFFFF for v in (red, blue)):
+            return 255, 255
+        if red == blue == 0:
+            return 255, 255
+        if red != blue:
+            return (1 if red > blue else 2), 2
+        damage = [gu.get("total_damage_" + t) for t in self.TEAM_NAMES]
+        if any(type(v) is not int or not 0 <= v <= 0xFFFFFFFF for v in damage):
+            return 255, 255
+        if damage[0] != damage[1]:
+            return (1 if damage[0] > damage[1] else 2), 3
+        health = gu.get("robot_health", [])
+        if len(health) != 8 or any(type(v) is not int or not 0 <= v <= 65535 for v in health):
+            return 255, 255
+        red_hp = sum(health[i] for i in (0, 1, 3))
+        blue_hp = sum(health[i] for i in (4, 5, 7))
+        if red_hp != blue_hp:
+            return (1 if red_hp > blue_hp else 2), 4
+        return 0, 5
 
-        # 规则2：双方前哨未被击毁，比较前哨剩余血量
-        if not red_outpost_dead and not blue_outpost_dead and red_outpost_hp != blue_outpost_hp:
-            return 1 if red_outpost_hp > blue_outpost_hp else 2
-
-        # 规则3：仅一方前哨被击毁
-        if red_outpost_dead != blue_outpost_dead:
-            return 2 if red_outpost_dead else 1
-
-        # --- 总伤害判定 ---
-        total_dmg_red = int(gu.get("total_damage_red", 0))
-        total_dmg_blue = int(gu.get("total_damage_blue", 0))
-        if total_dmg_red != total_dmg_blue:
-            return 1 if total_dmg_red > total_dmg_blue else 2
-
-        # --- 全队总剩余血量 ---
-        robot_hp = list(gu.get("robot_health", []))
-        if len(robot_hp) >= 6:
-            red_hp_sum = sum(robot_hp[:3])
-            blue_hp_sum = sum(robot_hp[3:6])
-        else:
-            half = len(robot_hp) // 2
-            red_hp_sum = sum(robot_hp[:half])
-            blue_hp_sum = sum(robot_hp[half:])
-        if red_hp_sum != blue_hp_sum:
-            return 1 if red_hp_sum > blue_hp_sum else 2
-
-        # --- 平局 ---
-        return 0
+    def _determine_winner(self):
+        return self._adjudicate_rmul()[0]
 
     def _enqueue_game_result(self):
         if self._game_result_enqueued:
             return
-        winner = self._determine_winner()
+        winner, end_reason = self._adjudicate_rmul()
+        if winner == 255:
+            self.last_game_result.update(winner=255, winner_label="等待有效判胜数据", end_reason=255)
+            return
+        self.pending_game_result_end_reason = end_reason
         if winner == 1:
             self.game_status["red_score"] = self._clamp(
                 self.game_status.get("red_score", 0) + 1,

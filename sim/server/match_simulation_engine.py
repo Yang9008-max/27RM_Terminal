@@ -14,8 +14,8 @@ class MatchSimulationEngine:
 
     TICK_HZ = 10.0
     QUICK_DURATION_SEC = 90.0
-    FULL_DURATION_SEC = 420.0
-    OFFICIAL_BATTLE_DURATION_SEC = 420.0
+    FULL_DURATION_SEC = 305.0
+    OFFICIAL_BATTLE_DURATION_SEC = 300.0
     COUNTDOWN_DURATION_SEC = 5.0
     DEFAULT_SEED = 2026
     DEFAULT_FEATURES = {
@@ -266,7 +266,7 @@ class MatchSimulationEngine:
         duration = max(0.001, self._duration_sec)
         countdown_duration = min(self.COUNTDOWN_DURATION_SEC, duration)
         if self._elapsed_sec >= duration:
-            return 5, 0, 0, "settlement", 1.0
+            return 5, 0, int(self.OFFICIAL_BATTLE_DURATION_SEC), "settlement", 1.0
 
         if self._elapsed_sec < countdown_duration:
             ratio = self._elapsed_sec / max(0.001, countdown_duration)

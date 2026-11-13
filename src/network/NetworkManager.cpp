@@ -1159,10 +1159,14 @@ void NetworkManager::processMqttMessage(const QString &topic,
   if (topic == "GameStatus") {
     robomaster::GameStatus msg;
     if (msg.ParseFromArray(payload.data(), payload.size())) {
-      const auto stage =
-          static_cast<robomaster::GameStage>(msg.current_stage());
-      const quint16 timeRemaining = static_cast<quint16>(msg.stage_countdown_sec());
-      const bool isPaused = msg.is_paused();
+      if (msg.has_current_stage() && msg.current_stage() > 5) return;
+      // A sparse MQTT result must not reset the legacy UDP fallback cache.
+      const auto &known = m_gameData->getGameState();
+      const auto stage = static_cast<robomaster::GameStage>(
+          msg.has_current_stage() ? msg.current_stage() : static_cast<int>(known.gameProgress));
+      const quint16 timeRemaining = msg.has_stage_countdown_sec()
+          ? static_cast<quint16>(qBound(0, msg.stage_countdown_sec(), 65535)) : known.gameTime;
+      const bool isPaused = msg.has_is_paused() ? msg.is_paused() : known.isPaused;
 
       m_hasMqttGameStatus = true;
       m_lastMqttStage = stage;

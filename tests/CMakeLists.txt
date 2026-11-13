@@ -35,6 +35,10 @@ add_executable(test_rmul2027_data unit/test_rmul2027_data.cpp)
 target_link_libraries(test_rmul2027_data PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
 rm26_add_qt_test(TestRmul2027Data test_rmul2027_data)
 
+add_executable(test_rmul2027_settlement unit/test_rmul2027_settlement.cpp)
+target_link_libraries(test_rmul2027_settlement PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
+rm26_add_qt_test(TestRmul2027Settlement test_rmul2027_settlement)
+
 add_executable(test_rmul2027_hud unit/test_rmul2027_hud.cpp)
 target_link_libraries(test_rmul2027_hud PRIVATE Qt6::Core Qt6::Qml Qt6::Quick Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
 rm26_add_qt_test(TestRmul2027Hud test_rmul2027_hud)

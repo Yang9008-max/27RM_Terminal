@@ -1718,6 +1718,8 @@ void MainWindow::initializeLayout() {
   // 下的 H/K 等 overlay 盖住。
   m_gameResultWidget = new GameResultWidget(this);
   m_gameResultWidget->hide(); // 默认隐藏
+  connect(m_gameData, &GameData::settlementChanged, this,
+          &MainWindow::refreshGameResultWidgetStats);
 
   // === RobotRespawn / Out QML 弹窗 ===
   // 使用统一的 PopupOverlay.qml 驱动所有弹窗显示；不再单独创建和控制分散的
@@ -3101,8 +3103,6 @@ void MainWindow::onGameStateUpdated() {
                               stage == GameStage::BATTLE);
   const bool enteredSettlement = (m_lastGameStage != GameStage::SETTLEMENT &&
                                   stage == GameStage::SETTLEMENT);
-  const bool scoreChangedForUi =
-      (m_redScore != gameState.redScore || m_blueScore != gameState.blueScore);
 
   // 更新比赛阶段文本
   switch (stage) {
@@ -3181,146 +3181,9 @@ void MainWindow::onGameStateUpdated() {
 
   // 倒计时显示同上，由 PopupOverlay.qml/`activePopups` 驱动。
 
-  // 结算阶段之外隐藏结果界面
-  if (m_gameResultWidget && m_gameResultWidget->isVisible() &&
-      stage != GameStage::SETTLEMENT) {
-    // 隐藏结算面板时断开临时更新连接
-    if (!m_gameResultUpdateConns.isEmpty()) {
-      for (auto &c : m_gameResultUpdateConns) {
-        QObject::disconnect(c);
-      }
-      m_gameResultUpdateConns.clear();
-    }
-    m_gameResultWidget->hide();
-  }
-
+  // The settlement view has one data projection and one set of subscriptions.
+  refreshGameResultWidgetStats();
   updateTacticalTimedEventPopupState();
-
-  // 进入结算阶段时自动显示结算面板（即使没有收到 gameResultReceived 信号）
-  if (enteredSettlement && m_gameResultWidget) {
-    qInfo() << "[MainWindow] Entered settlement stage, showing result widget";
-
-    // 确定胜负结果：统一使用 GameData 的战斗阶段到结算阶段比分增量判定。
-    GameResultWidget::GameResult result = GameResultWidget::Draw;
-    const quint8 winner = m_gameData->determineWinner();
-    if (winner == 1) {
-      result = GameResultWidget::RedWin;
-    } else if (winner == 2) {
-      result = GameResultWidget::BlueWin;
-    }
-
-    // 填充当前数据
-    m_gameResultWidget->setPlayVictoryOnShow(true);
-    m_gameResultWidget->setGameData(
-      m_gameData->redRoundScoreDelta(), m_gameData->blueRoundScoreDelta(),
-      m_gameData->currentRound(), m_gameData->getFormattedStageElapsedTime());
-       // 补充增强统计，确保自动进入结算时也填充基地/前哨/哨兵等数据
-    {
-      int redSentryHP = 0;
-      int blueSentryHP = 0;
-      const auto &gameState = m_gameData->getGameState();
-      for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-        if (r.type != ::RobotType::SENTRY) continue;
-        if (r.lastUpdateTime < gameState.lastUpdateTime) continue;
-        redSentryHP += r.currentHP;
-      }
-      for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-        if (r.type != ::RobotType::SENTRY) continue;
-        if (r.lastUpdateTime < gameState.lastUpdateTime) continue;
-        blueSentryHP += r.currentHP;
-      }
-      int activated = m_gameData->activatedRuneArms();
-      int redEnergyActivations = m_gameData->isRedRuneActive() ? activated : 0;
-      int blueEnergyActivations = m_gameData->isBlueRuneActive() ? activated : 0;
-
-      m_gameResultWidget->setEnhancedGameStats(
-          m_gameData->redBaseHealth(), m_gameData->blueBaseHealth(),
-          m_gameData->redOutpostHealth(), m_gameData->blueOutpostHealth(),
-          redSentryHP, blueSentryHP, redEnergyActivations, blueEnergyActivations,
-          QString());
-    }
-
-    // 同步填充单兵统计（确保自动进入结算时也显示单兵伤害）
-    {
-      QMap<int, GameResultWidget::RobotStats> redMap;
-      QMap<int, GameResultWidget::RobotStats> blueMap;
-      const QMap<int, quint32> damageMap = m_gameData->getDamageByRobot();
-      for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-        GameResultWidget::RobotStats s;
-        s.name = r.name.isEmpty() ? QStringLiteral("R%1").arg(r.robotId) : r.name;
-        s.currentHP = r.currentHP;
-        s.maxHP = r.maxHP;
-        s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-        s.damageTaken = 0;
-        s.kills = 0;
-        s.deaths = (r.currentHP <= 0) ? 1 : 0;
-        s.isAlive = (r.currentHP > 0);
-        redMap.insert(r.robotId, s);
-      }
-      for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-        GameResultWidget::RobotStats s;
-        s.name = r.name.isEmpty() ? QStringLiteral("B%1").arg(r.robotId - 100) : r.name;
-        s.currentHP = r.currentHP;
-        s.maxHP = r.maxHP;
-        s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-        s.damageTaken = 0;
-        s.kills = 0;
-        s.deaths = (r.currentHP <= 0) ? 1 : 0;
-        s.isAlive = (r.currentHP > 0);
-        blueMap.insert(r.robotId, s);
-      }
-      m_gameResultWidget->setRobotStats(redMap, blueMap);
-    }
-
-    // 显示结果（带失败/胜利动画）
-    qDebug() << "[MainWindow] Entered settlement -> showResult (auto) result=" << static_cast<int>(result) << "reason=" << static_cast<int>(GameResultWidget::TimeUp);
-    m_gameResultWidget->showResult(result, GameResultWidget::TimeUp);
-    m_gameResultWidget->show();
-    updateGameResultWidgetGeometry();
-    ensureOverlayRaisedIfActive();
-
-    // 结算面板可见期间订阅相关 GameData 更新
-    if (m_gameResultUpdateConns.isEmpty() && m_gameData) {
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::baseHealthUpdated, this, [this](TeamColor){
-        QMetaObject::invokeMethod(this, [this]() { refreshGameResultWidgetStats(); }, Qt::QueuedConnection);
-      }));
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::outpostHealthUpdated, this, [this](TeamColor){
-        refreshGameResultWidgetStats();
-      }));
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::robotDataUpdated, this, [this](quint8){
-        refreshGameResultWidgetStats();
-      }));
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::damageEventOccurred, this, [this](quint8, quint8, quint16){
-        refreshGameResultWidgetStats();
-      }));
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::redRuneStatusUpdated, this, [this](){
-        refreshGameResultWidgetStats();
-      }));
-      m_gameResultUpdateConns.append(connect(m_gameData, &GameData::blueRuneStatusUpdated, this, [this](){
-        refreshGameResultWidgetStats();
-      }));
-
-      // 首次显示时立即刷新，确保数据最新
-      refreshGameResultWidgetStats();
-    }
-  } else if (stage == GameStage::SETTLEMENT && scoreChangedForUi &&
-             m_gameResultWidget && m_gameResultWidget->isVisible()) {
-    GameResultWidget::GameResult result = GameResultWidget::Draw;
-    const quint8 winner = m_gameData->determineWinner();
-    if (winner == 1) {
-      result = GameResultWidget::RedWin;
-    } else if (winner == 2) {
-      result = GameResultWidget::BlueWin;
-    }
-
-    m_gameResultWidget->setPlayVictoryOnShow(true);
-    m_gameResultWidget->setGameData(
-        m_gameData->redRoundScoreDelta(), m_gameData->blueRoundScoreDelta(),
-        m_gameData->currentRound(), m_gameData->getFormattedStageElapsedTime());
-    m_gameResultWidget->showResult(result, GameResultWidget::TimeUp);
-    updateGameResultWidgetGeometry();
-    ensureOverlayRaisedIfActive();
-  }
 
   updateSiloPanelVisibility();
 
@@ -3403,208 +3266,24 @@ void MainWindow::checkDartHitViewSwitch() {
 }
 
 void MainWindow::onGameResultReceived(quint8 winner) {
-  if (!m_gameData || !m_gameResultWidget)
-    return;
-
-  // 仅在处于结算阶段时播放结算音效与展示结果，避免比赛从结算回到未开始时误触发
-  if (m_gameData->getCurrentStage() != GameStage::SETTLEMENT) {
-    qInfo() << "MainWindow: Received gameResult but current stage is not SETTLEMENT, ignoring result playback";
-    return;
-  }
-
-  // 填充比分与时间（显示回合持续时间，来自 GameStatus.stage_elapsed_sec）
-  m_gameResultWidget->setPlayVictoryOnShow(true);
-  m_gameResultWidget->setGameData(
-    m_gameData->redRoundScoreDelta(), m_gameData->blueRoundScoreDelta(),
-    m_gameData->currentRound(), m_gameData->getFormattedStageElapsedTime());
-
-  // 队伍信息
-  m_gameResultWidget->setTeamData(m_gameData->redTeamName(),
-                                  m_gameData->blueTeamName(), QString(),
-                                  QString());
-
-  // 构造机器人统计摘要
-  QMap<int, GameResultWidget::RobotStats> redMap;
-  QMap<int, GameResultWidget::RobotStats> blueMap;
-  // 填充各机器人统计和 GameData 中的伤害数据
-  const QMap<int, quint32> damageMap = m_gameData->getDamageByRobot();
-  for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-    GameResultWidget::RobotStats s;
-    s.name = r.name.isEmpty() ? QStringLiteral("R%1").arg(r.robotId) : r.name;
-    s.currentHP = r.currentHP;
-    s.maxHP = r.maxHP;
-    s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-    s.damageTaken = 0;
-    s.kills = 0;
-    s.deaths = (r.currentHP <= 0) ? 1 : 0;
-    s.isAlive = (r.currentHP > 0);
-    redMap.insert(r.robotId, s);
-  }
-
-  for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-    GameResultWidget::RobotStats s;
-    s.name = r.name.isEmpty() ? QStringLiteral("B%1").arg(r.robotId - 100) : r.name;
-    s.currentHP = r.currentHP;
-    s.maxHP = r.maxHP;
-    s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-    s.damageTaken = 0;
-    s.kills = 0;
-    s.deaths = (r.currentHP <= 0) ? 1 : 0;
-    s.isAlive = (r.currentHP > 0);
-    blueMap.insert(r.robotId, s);
-  }
-
-  m_gameResultWidget->setRobotStats(redMap, blueMap);
-
-  // 伤害事件无法提供分项统计时，使用协议中的队伍总量兜底，保证“伤害总量”
-  // 与权威的 GlobalUnitStatus 一致。
-  QMap<QString, QVariant> detailed;
-  detailed.insert("redTotalDamage", QVariant(m_gameData->redTotalDamage()));
-  detailed.insert("blueTotalDamage", QVariant(m_gameData->blueTotalDamage()));
-  m_gameResultWidget->setDetailedStats(detailed);
-
-  // 补充增强统计（来自 GameData / MQTT 转发的数据），用于结算面板展示
-  int redSentryHP = 0;
-  int blueSentryHP = 0;
-  const auto &gameState = m_gameData->getGameState();
-  // 只有在哨兵在本局内有更新时才把其血量计入结算面板，避免使用初始化默认值(600)
-  for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-    if (r.type != ::RobotType::SENTRY) continue;
-    if (r.lastUpdateTime < gameState.lastUpdateTime) {
-      continue; // 未在本局收到过更新，视为未上报
-    }
-    redSentryHP += r.currentHP;
-  }
-  for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-    if (r.type != ::RobotType::SENTRY) continue;
-    if (r.lastUpdateTime < gameState.lastUpdateTime) {
-      continue;
-    }
-    blueSentryHP += r.currentHP;
-  }
-
-  int activated = m_gameData->activatedRuneArms();
-  int redEnergyActivations = m_gameData->isRedRuneActive() ? activated : 0;
-  int blueEnergyActivations = m_gameData->isBlueRuneActive() ? activated : 0;
-
-  m_gameResultWidget->setEnhancedGameStats(
-      m_gameData->redBaseHealth(), m_gameData->blueBaseHealth(),
-      m_gameData->redOutpostHealth(), m_gameData->blueOutpostHealth(),
-      redSentryHP, blueSentryHP, redEnergyActivations, blueEnergyActivations,
-      QString());
-
-  // 根据 winner 映射结果类型
-  GameResultWidget::GameResult result = GameResultWidget::Draw;
-  GameResultWidget::WinReason reason = GameResultWidget::TimeUp;
-  if (winner == 1) {
-    result = GameResultWidget::RedWin;
-    reason = GameResultWidget::TimeUp;
-  } else if (winner == 2) {
-    result = GameResultWidget::BlueWin;
-    reason = GameResultWidget::TimeUp;
-  } else if (winner == 0) {
-    // 平局（与 enteredSettlement 路径保持一致）
-    result = GameResultWidget::Draw;
-    reason = GameResultWidget::TimeUp;
-  }
-
-  qDebug() << "[MainWindow] onGameResultReceived: winner=" << static_cast<int>(winner)
-           << "mapped result=" << static_cast<int>(result) << "reason=" << static_cast<int>(reason);
-  m_gameResultWidget->showResult(result, reason);
-  m_gameResultWidget->show();
-  updateGameResultWidgetGeometry();
-  ensureOverlayRaisedIfActive();
-  m_gameResultWidget->raise();
-
-  // 尚未订阅时，为可见的结算面板建立临时更新连接
-  if (m_gameResultUpdateConns.isEmpty() && m_gameData) {
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::baseHealthUpdated, this, [this](TeamColor){
-      QMetaObject::invokeMethod(this, [this]() { refreshGameResultWidgetStats(); }, Qt::QueuedConnection);
-    }));
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::outpostHealthUpdated, this, [this](TeamColor){
-      refreshGameResultWidgetStats();
-    }));
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::robotDataUpdated, this, [this](quint8){
-      refreshGameResultWidgetStats();
-    }));
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::damageEventOccurred, this, [this](quint8, quint8, quint16){
-      refreshGameResultWidgetStats();
-    }));
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::redRuneStatusUpdated, this, [this](){
-      refreshGameResultWidgetStats();
-    }));
-    m_gameResultUpdateConns.append(connect(m_gameData, &GameData::blueRuneStatusUpdated, this, [this](){
-      refreshGameResultWidgetStats();
-    }));
-
-    // 首次刷新
-    refreshGameResultWidgetStats();
-  }
+  Q_UNUSED(winner);
+  refreshGameResultWidgetStats();
 }
 
-
-  void MainWindow::refreshGameResultWidgetStats() {
-    if (!m_gameResultWidget || !m_gameData) return;
-
-    int redSentryHP = 0;
-    int blueSentryHP = 0;
-    const auto &gameState = m_gameData->getGameState();
-    for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-      if (r.type != ::RobotType::SENTRY) continue;
-      if (r.lastUpdateTime < gameState.lastUpdateTime) continue;
-      redSentryHP += r.currentHP;
-    }
-    for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-      if (r.type != ::RobotType::SENTRY) continue;
-      if (r.lastUpdateTime < gameState.lastUpdateTime) continue;
-      blueSentryHP += r.currentHP;
-    }
-
-    int activated = m_gameData->activatedRuneArms();
-    int redEnergyActivations = m_gameData->isRedRuneActive() ? activated : 0;
-    int blueEnergyActivations = m_gameData->isBlueRuneActive() ? activated : 0;
-
-    m_gameResultWidget->setEnhancedGameStats(
-        m_gameData->redBaseHealth(), m_gameData->blueBaseHealth(),
-        m_gameData->redOutpostHealth(), m_gameData->blueOutpostHealth(),
-        redSentryHP, blueSentryHP, redEnergyActivations, blueEnergyActivations,
-        QString());
-
-    // 更新机器人、伤害和协议总量
-    QMap<int, GameResultWidget::RobotStats> redMap;
-    QMap<int, GameResultWidget::RobotStats> blueMap;
-    const QMap<int, quint32> damageMap = m_gameData->getDamageByRobot();
-    for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::RED)) {
-      GameResultWidget::RobotStats s;
-      s.name = r.name.isEmpty() ? QStringLiteral("R%1").arg(r.robotId) : r.name;
-      s.currentHP = r.currentHP;
-      s.maxHP = r.maxHP;
-      s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-      s.damageTaken = 0;
-      s.kills = 0;
-      s.deaths = (r.currentHP <= 0) ? 1 : 0;
-      s.isAlive = (r.currentHP > 0);
-      redMap.insert(r.robotId, s);
-    }
-    for (const auto &r : m_gameData->getRobotsByTeam(TeamColor::BLUE)) {
-      GameResultWidget::RobotStats s;
-      s.name = r.name.isEmpty() ? QStringLiteral("B%1").arg(r.robotId - 100) : r.name;
-      s.currentHP = r.currentHP;
-      s.maxHP = r.maxHP;
-      s.damageDealt = static_cast<int>(damageMap.value(r.robotId, 0));
-      s.damageTaken = 0;
-      s.kills = 0;
-      s.deaths = (r.currentHP <= 0) ? 1 : 0;
-      s.isAlive = (r.currentHP > 0);
-      blueMap.insert(r.robotId, s);
-    }
-    m_gameResultWidget->setRobotStats(redMap, blueMap);
-
-    QMap<QString, QVariant> detailed;
-    detailed.insert("redTotalDamage", QVariant(m_gameData->redTotalDamage()));
-    detailed.insert("blueTotalDamage", QVariant(m_gameData->blueTotalDamage()));
-    m_gameResultWidget->setDetailedStats(detailed);
+void MainWindow::refreshGameResultWidgetStats() {
+  if (!m_gameResultWidget || !m_gameData) return;
+  const auto snapshot = m_gameData->settlementSnapshot();
+  m_gameResultWidget->setSnapshot(snapshot);
+  if (!snapshot.inSettlement) {
+    m_gameResultWidget->hide();
+    m_presentedSettlementRound = 0;
+  } else if (m_presentedSettlementRound != snapshot.round) {
+    m_presentedSettlementRound = snapshot.round;
+    m_gameResultWidget->show();
+    updateGameResultWidgetGeometry();
+    ensureOverlayRaisedIfActive();
   }
+}
 // 视频源切换（切换时设置为未连接）
 void MainWindow::onVideoSourceChanged(const QString &url, bool isPlaying) {
   if (m_qmlSettingsPanel && m_qmlSettingsPanel->rootObject()) {
@@ -7642,69 +7321,12 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
   } break;
 
   case Qt::Key_R:
-    // Ctrl+R 测试显示比赛结果
-    if (event->modifiers() & Qt::ControlModifier) {
-      if (m_gameResultWidget) {
-        if (m_gameResultWidget->isVisible()) {
-          m_gameResultWidget->hide();
-        } else {
-          // 红方胜利与蓝方胜利交替显示
-          static bool testBlueWin = false;
-          testBlueWin = !testBlueWin; // 保留测试状态切换
-          // 每次重新打开时切换胜方，关闭动作不改变下一次显示结果。
-          static bool nextIsBlue = false;
-
-          GameResultWidget::GameResult result =
-              nextIsBlue ? GameResultWidget::BlueWin : GameResultWidget::RedWin;
-
-          // 模拟数据
-          m_gameResultWidget->setGameData(2, 1, 3, "04:59");
-          m_gameResultWidget->setTeamData("复旦大学", "上海交通大学", "Fudan",
-                                          "SJTU");
-
-          // 模拟机器人数据 (含伤害统计)
-          QMap<int, GameResultWidget::RobotStats> redRobots;
-          QMap<int, GameResultWidget::RobotStats> blueRobots;
-
-          // 红方机器人：1 英雄、2 工程、3/4/5 步兵、6 空中、7 哨兵。
-          auto addRobot = [](QMap<int, GameResultWidget::RobotStats> &map,
-                             int id, int hp, int maxHp, int damage) {
-            GameResultWidget::RobotStats s;
-            s.currentHP = hp;
-            s.maxHP = maxHp;
-            s.damageDealt = damage;
-            s.isAlive = (hp > 0);
-            map.insert(id, s);
-          };
-
-          addRobot(redRobots, 1, 2580, 4000, 2580); // 英雄
-          addRobot(redRobots, 3, 647, 600, 647);    // 步兵
-          addRobot(redRobots, 4, 697, 600, 697);    // 步兵
-          addRobot(redRobots, 5, 600, 600, 450);    // 步兵
-          addRobot(redRobots, 6, 0, 300, 120);      // 空中机器人，已阵亡
-          addRobot(redRobots, 7, 864, 600, 864);    // 哨兵
-
-          addRobot(blueRobots, 101, 2453, 4000, 232); // 英雄
-          addRobot(blueRobots, 103, 0, 600, 783);     // 步兵，已阵亡
-          addRobot(blueRobots, 104, 344, 600, 1382);  // 步兵
-          addRobot(blueRobots, 105, 0, 600, 400);     // 步兵，已阵亡
-          addRobot(blueRobots, 106, 0, 300, 120);     // 空中机器人，已阵亡
-          addRobot(blueRobots, 107, 1617, 600,
-                   836); // 哨兵，测试数据使用增强血量
-
-          m_gameResultWidget->setRobotStats(redRobots, blueRobots);
-
-          // 确保居中 (先定位，再启动动画)
-          updateGameResultWidgetGeometry();
-
-          m_gameResultWidget->showResult(result,
-                                         GameResultWidget::BaseDestroyed);
-          m_gameResultWidget->show();
-          updateGameResultWidgetGeometry();
-
-          // 为下一次打开切换胜方
-          nextIsBlue = !nextIsBlue;
-        }
+    if (event->modifiers() & Qt::ControlModifier && m_gameResultWidget) {
+      if (m_gameResultWidget->isVisible()) m_gameResultWidget->hide();
+      else if (m_gameData && m_gameData->settlementSnapshot().inSettlement) {
+        refreshGameResultWidgetStats();
+        m_gameResultWidget->show();
+        updateGameResultWidgetGeometry();
       }
     }
     break;

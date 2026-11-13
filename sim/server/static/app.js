@@ -815,7 +815,7 @@ if (!hasSocketIo || !hasVue) {
             };
 
             if (action === 'start') {
-                const duration = payload.mode === 'full' ? 420 : 90;
+                const duration = payload.mode === 'full' ? 305 : 90;
                 this.simulationManualOverride = false;
                 this.simulationUiMessage = '正在启动赛事演示…';
                 this.simulationStatus = Object.assign({}, this.simulationStatus, {
@@ -851,7 +851,7 @@ if (!hasSocketIo || !hasVue) {
                 return;
             }
 
-            const duration = this.simulationConfig.mode === 'full' ? 420 : 90;
+            const duration = this.simulationConfig.mode === 'full' ? 305 : 90;
             this.simulationStatus = Object.assign({}, this.simulationStatus, {
                 mode: this.simulationConfig.mode,
                 speed: this.simulationConfig.speed,
@@ -914,7 +914,7 @@ if (!hasSocketIo || !hasVue) {
                 : {};
             const source = Object.assign({}, payload, nestedStatus);
             const pick = (...values) => values.find(value => value !== undefined && value !== null);
-            const fallbackDuration = (pick(source.mode, this.simulationConfig.mode) === 'full') ? 420 : 90;
+            const fallbackDuration = (pick(source.mode, this.simulationConfig.mode) === 'full') ? 305 : 90;
             const duration = Number(pick(
                 source.duration,
                 source.duration_sec,
@@ -2719,7 +2719,7 @@ if (!hasSocketIo || !hasVue) {
             if (Number.isFinite(value) && value > 0) {
                 return value;
             }
-            return this.simulationConfig.mode === 'full' ? 420 : 90;
+            return this.simulationConfig.mode === 'full' ? 305 : 90;
         },
         simulationRemaining() {
             const value = Number(this.simulationStatus.remaining);

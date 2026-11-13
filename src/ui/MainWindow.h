@@ -522,7 +522,6 @@ private:
   GameResultWidget *m_gameResultWidget = nullptr; // 比赛结算界面
 
   // 结算面板可见期间使用的临时连接
-  QList<QMetaObject::Connection> m_gameResultUpdateConns;
 
   // --- 系统核心对象 ---
   QTimer *m_updateTimer = nullptr;            // 主循环刷新定时器
@@ -564,6 +563,7 @@ private:
   int m_currentRound = 1;                           // 当前回合数
   QString m_gamePhase = QStringLiteral("准备阶段"); // 当前比赛阶段描述
   GameStage m_lastGameStage = GameStage::NOT_STARTED; // 上一次比赛阶段
+  int m_presentedSettlementRound = 0;
   int m_screenWidth = 0;                            // 屏幕宽度
   int m_screenHeight = 0;                           // 屏幕高度
 

@@ -193,11 +193,12 @@ class ProtocolContractTest(unittest.TestCase):
 
     def test_state_manager_exposes_authoritative_settlement_result(self):
         state_manager = StateManager()
+        state_manager.skip_to_battle()
         state_manager.end_match()
 
         result = state_manager.get_state()["lastGameResult"]
         self.assertIn(result["winner"], (0, 1, 2))
-        self.assertEqual(1, result["end_reason"])
+        self.assertEqual(5, result["end_reason"])
 
 
 if __name__ == "__main__":

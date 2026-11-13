@@ -14,6 +14,7 @@
 
 #include "../network/Protocol.h"
 #include "TimedEventRules.h"
+#include "RmulSettlement.h"
 #include <QDateTime>
 #include <QImage>
 #include <QList>
@@ -1056,6 +1057,7 @@ public:
 
   // 判定胜者：比较战斗阶段起点与结算阶段当前比分的增量（0=平局,1=红方,2=蓝方）
   quint8 determineWinner() const;
+  RmulSettlementSnapshot settlementSnapshot() const;
 
   bool kickedAll() const { return m_kickedAll; }
   void setKickedAll(bool value);
@@ -1230,6 +1232,7 @@ public slots:
   QString heroFrameDataUrl() const;
 
 signals:
+  void settlementChanged();
   void matchStatusValidityChanged();
   // 兑换更新信号
   void exchangeCountsUpdated();
@@ -1517,6 +1520,10 @@ private:
   // 是否使用外部钟作为比赛时间源。默认 true（优先使用来自网络的 gameTime）
   bool m_useExternalGameClock = true;
   bool m_hasMatchStatus = false;
+  quint8 m_officialWinner = 255;
+  quint8 m_officialEndReason = 255;
+  bool m_hasStageElapsed = false;
+  std::optional<quint32> m_redSettlementDamage, m_blueSettlementDamage;
   QList<OutpostHealthSample> m_redOutpostHealthSamples;
   QList<OutpostHealthSample> m_blueOutpostHealthSamples;
   // 仅记录实际发出的有效提示；被 15 秒间隔丢弃的候选不更新此时间戳。

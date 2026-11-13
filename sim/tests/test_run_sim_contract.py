@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUN_SCRIPT = PROJECT_ROOT / "sim" / "run_sim.sh"
 
 
+@unittest.skipUnless(os.name == "posix", "run_sim.sh requires a POSIX process environment")
 class RunSimContractTest(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory(prefix="rm26-run-sim-")
