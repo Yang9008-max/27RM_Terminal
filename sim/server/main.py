@@ -534,9 +534,9 @@ async def referee_command(sid, data):
             mqtt_publisher.publish_robot_module_status(state_manager.get_state())
     elif cmd == "set_robot_performance_selection_sync":
         state_manager.set_robot_performance_selection_sync(
-            shooter=data.get("shooter", 1),
-            chassis=data.get("chassis", 1),
-            sentry_control=data.get("sentry_control", 0),
+            shooter=data.get("shooter"),
+            chassis=data.get("chassis"),
+            sentry_control=data.get("sentry_control"),
         )
 
     elif cmd == "set_sentry_status_sync":

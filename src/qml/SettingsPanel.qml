@@ -46,15 +46,32 @@ Rectangle {
     readonly property bool currentSelectionActive: selectedRobotType !== "" && selectedRobotType === robotSelector.currentText
     readonly property string currentRobotSelection: robotSelector.currentText
     readonly property var shortcutRobotTypes: [
-        "R1 - Hero", "R2 - Engineer", "R3 - Standard", "R4 - Standard",
-        "R6 - Aerial", "B1 - Hero", "B2 - Engineer", "B3 - Standard",
-        "B4 - Standard", "B6 - Aerial"
+        "R1 - Hero", "R3 - Standard", "R7 - Sentry",
+        "B1 - Hero", "B3 - Standard", "B7 - Sentry"
     ]
+    property int matchStage: 0
+    readonly property bool previewIsInfantry: currentRobotSelection === "R3 - Standard" || currentRobotSelection === "B3 - Standard"
+    readonly property bool previewIsHeavy: currentRobotSelection === "R1 - Hero" || currentRobotSelection === "B1 - Hero"
+    readonly property bool performanceControlsEnabled: previewIsInfantry && hasActiveRobot
+        && activeRobotLabel === currentRobotSelection && matchStage >= 1 && matchStage <= 3
     property bool performanceControlsReady: false
     property bool robotShortcutPending: false
 
+    onCurrentRobotSelectionChanged: refreshPerformanceDraftForIdentity()
+    onActiveRobotLabelChanged: refreshPerformanceDraftForIdentity()
+
+    function refreshPerformanceDraftForIdentity() {
+        var matches = hasActiveRobot && activeRobotLabel === currentRobotSelection
+        applyComboTextSilently(chassisTypeCombo, matches ? chassisSelectionText : "初始设置")
+        applyComboTextSilently(launchTypeCombo, matches ? shooterSelectionText : "初始设置")
+    }
+
     onSelectedRobotTypeChanged: {
         clearRobotShortcutSelection()
+        chassisSelectionText = "初始设置"
+        shooterSelectionText = "初始设置"
+        applyComboTextSilently(chassisTypeCombo, "初始设置")
+        applyComboTextSilently(launchTypeCombo, "初始设置")
         if (robotSelector && robotSelector.syncFromSelectedRobot) {
             robotSelector.syncFromSelectedRobot()
         }
@@ -66,17 +83,8 @@ Rectangle {
     }
 
     //当外部的底盘选择文本变化时，同步选择框的底盘类型
-    onChassisSelectionTextChanged: {
-        if (chassisTypeCombo) {
-            applyComboTextSilently(chassisTypeCombo, chassisSelectionText)
-        }
-    }
-
-    onShooterSelectionTextChanged: {
-        if (launchTypeCombo) {
-            applyComboTextSilently(launchTypeCombo, shooterSelectionText)
-        }
-    }
+    onChassisSelectionTextChanged: refreshPerformanceDraftForIdentity()
+    onShooterSelectionTextChanged: refreshPerformanceDraftForIdentity()
 
     // 避免 ComboBox 初始化 currentText 时误发性能体系指令
     Component.onCompleted: {
@@ -116,10 +124,6 @@ Rectangle {
             return 1
         if (text === "爆发优先")
             return 2
-        if (text === "英雄近战优先")
-            return 3
-        if (text === "英雄远程优先")
-            return 4
         return 0
     }
 
@@ -128,28 +132,28 @@ Rectangle {
             return 1
         if (text === "功率优先")
             return 2
-        if (text === "英雄近战优先")
-            return 3
-        if (text === "英雄远程优先")
-            return 4
         return 0
     }
 
-    function sentryControlValue(text) {
-        return text === "半自动" ? 1 : 0
+    function robotDisplayName(key) {
+        var names = {"R1 - Hero": "红方 1号 重装", "R3 - Standard": "红方 3号 步兵",
+            "R7 - Sentry": "红方 7号 哨兵（观测）", "B1 - Hero": "蓝方 1号 重装",
+            "B3 - Standard": "蓝方 3号 步兵", "B7 - Sentry": "蓝方 7号 哨兵（观测）"}
+        return names[key] || "请选择RMUL机器人"
+    }
+
+    function requestPerformanceSelection(shooter, chassis) {
+        if (!performanceControlsReady || !performanceControlsEnabled
+            || shooter < 0 || shooter > 2 || chassis < 0 || chassis > 2
+            || (shooter === 0 && chassis === 0))
+            return false
+        performanceSelectionChanged(shooter, chassis, 0)
+        return true
     }
 
     function emitPerformanceSelectionIfReady() {
-        if (!performanceControlsReady)
-            return
-
-        var shooter = shooterSelectionValue(launchTypeCombo.currentText)
-        var chassis = chassisSelectionValue(chassisTypeCombo.currentText)
-        // 协议层允许 0 表示“初始设置/未选择”，因此只在两项都仍为初始设置时不发送。
-        if (shooter === 0 && chassis === 0)
-            return
-
-        performanceSelectionChanged(shooter, chassis, sentryControlValue(operationComboBox.currentText))
+        return requestPerformanceSelection(shooterSelectionValue(launchTypeCombo.currentText),
+            chassisSelectionValue(chassisTypeCombo.currentText))
     }
 
     // 数字快捷键只改变下拉框的待确认选择；真正登录仍复用现有 loginRequested 链路。
@@ -225,7 +229,7 @@ Rectangle {
             }
 
             Text {
-                text: "v2.0"
+                text: "RMUL 2027 · 3V3"
                 color: "#888888"
                 font.pixelSize: root.height * 0.03
             }
@@ -278,10 +282,13 @@ Rectangle {
                         id: robotSelector
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.comboBoxHeight
-                        model: ["R1 - Hero", "R2 - Engineer", "R3 - Standard",
-                                "R4 - Standard", "R6 - Aerial", "R7 - Sentry",
-                                "B1 - Hero", "B2 - Engineer", "B3 - Standard",
-                                "B4 - Standard", "B6 - Aerial", "B7 - Sentry"]
+                        model: root.shortcutRobotTypes
+                        displayText: root.robotDisplayName(currentText)
+                        delegate: ItemDelegate {
+                            width: robotSelector.width
+                            text: root.robotDisplayName(modelData)
+                            highlighted: robotSelector.highlightedIndex === index
+                        }
 
                         function syncFromSelectedRobot() {
                             if (!root.selectedRobotType)
@@ -315,6 +322,14 @@ Rectangle {
                                 Layout.fillWidth: true
                             }
                         }
+                    }
+
+                     Text {
+                        text: "快捷键 1–3 红方 / 4–6 蓝方，Enter 确认"
+                        color: "#91a4bb"
+                        font.pixelSize: root.height * 0.024
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
                     }
 
                      //登录/登出按键
@@ -374,7 +389,7 @@ Rectangle {
                     // 登录状态指示
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: root.activeRobotLabel !== "" ? "✅ 当前机器人: " + root.activeRobotLabel : "🔴 未选择机器人"
+                        text: root.activeRobotLabel !== "" ? "当前: " + root.robotDisplayName(root.activeRobotLabel) : "🔴 未选择机器人"
                         color: root.activeRobotLabel !== "" ? "#00FF00" : "red"
                         font.bold: true
                     }
@@ -453,14 +468,28 @@ Rectangle {
                     spacing: root.height * 0.03
 
                     Text {
-                        text: "性能设置"
+                        text: root.previewIsInfantry ? "步兵性能设置" : (root.previewIsHeavy ? "重装性能" : "哨兵运行方式")
                         color: "white"
                         font.bold: true
                         font.pixelSize: root.height * 0.04
                     }
 
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: "#aabed4"
+                        font.pixelSize: root.height * 0.026
+                        text: root.previewIsHeavy ? "性能随模块化42mm发射机构装配、激活而提升，无近战/远程选项。"
+                            : (!root.previewIsInfantry ? "RMUL哨兵必须全自动运行。此入口仅观测，不发送键鼠控制或半自动切换指令。"
+                            : (root.activeRobotLabel !== root.currentRobotSelection ? "登录该步兵后查看裁判确认值，赛前可选择性能。"
+                            : (root.performanceControlsEnabled ? "赛前选择性能；收到裁判回执后更新确认值。"
+                                : (root.matchStage >= 4 ? "本局性能已锁定，以下显示裁判确认值。" : "登录当前步兵，并等待准备阶段后可选择。")))
+                            )
+                    }
+
                     //底盘类型
                     RowLayout {
+                        visible: root.previewIsInfantry
                         Layout.fillWidth: true
                         Text {
                             text: "底盘类型"
@@ -472,14 +501,13 @@ Rectangle {
                         }
                         ComboBox {
                             id: chassisTypeCombo
+                            objectName: "chassisSelector"
+                            enabled: root.performanceControlsEnabled
+                            opacity: enabled ? 1 : 0.55
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.comboBoxHeight
-                            model: ["初始设置", "血量优先", "功率优先","英雄近战优先","英雄远程优先"]
-                            onCurrentTextChanged: {
-                                if (root.chassisSelectionText !== chassisTypeCombo.currentText)
-                                    root.chassisSelectionText = chassisTypeCombo.currentText    //保持底盘类型文本与选择框内一致
-                                root.emitPerformanceSelectionIfReady()
-                            }
+                            model: ["初始设置", "血量优先", "功率优先"]
+                            onActivated: root.emitPerformanceSelectionIfReady()
                             background: Rectangle {
                                 color: "#222222"
                                 radius: root.height * 0.007
@@ -498,9 +526,10 @@ Rectangle {
 
                     //17mm发射机构类型
                     RowLayout {
+                        visible: root.previewIsInfantry
                         Layout.fillWidth: true
                         Text {
-                            text: "17mm发射机构类型"
+                            text: "17mm发射机构"
                             color: "white"
                             Layout.preferredWidth: root.width * 0.08
                         }
@@ -509,14 +538,13 @@ Rectangle {
                         }
                         ComboBox {
                             id: launchTypeCombo
+                            objectName: "shooterSelector"
+                            enabled: root.performanceControlsEnabled
+                            opacity: enabled ? 1 : 0.55
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.comboBoxHeight
-                            model: ["初始设置", "冷却优先", "爆发优先","英雄近战优先","英雄远程优先"]
-                            onCurrentTextChanged: {
-                                if (root.shooterSelectionText !== launchTypeCombo.currentText)
-                                    root.shooterSelectionText = launchTypeCombo.currentText
-                                root.emitPerformanceSelectionIfReady()
-                            }
+                            model: ["初始设置", "冷却优先", "爆发优先"]
+                            onActivated: root.emitPerformanceSelectionIfReady()
                             background: Rectangle {
                                 color: "#222222"
                                 radius: root.height * 0.007
@@ -533,6 +561,19 @@ Rectangle {
                             }
                         }
                     }
+
+                    Text {
+                        visible: root.previewIsInfantry
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: "#91a4bb"
+                        font.pixelSize: root.height * 0.024
+                        text: root.activeRobotLabel === root.currentRobotSelection
+                            ? "裁判确认：" + root.chassisSelectionText + " / " + root.shooterSelectionText
+                            : "登录该步兵后查看裁判确认值"
+                    }
+
+                    Item { Layout.fillHeight: true }
 
                     // 分隔线
                     Rectangle {
@@ -564,7 +605,9 @@ Rectangle {
                             id: directionCombo
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.comboBoxHeight
-                            model: ["正向", "反向"]
+                            enabled: false
+                            opacity: 0.55
+                            model: ["自动适配"]
                             onCurrentTextChanged: root.vtDirectionChanged(currentText)
                             background: Rectangle {
                                 color: "#222222"
@@ -612,7 +655,7 @@ Rectangle {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "控制灵敏度"
+                            text: "鼠标灵敏度"
                             color: "white"
                             Layout.preferredWidth: root.width * 0.08
                         }
@@ -641,7 +684,7 @@ Rectangle {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "音量设置"
+                            text: "提示音量"
                             color: "white"
                             Layout.preferredWidth: root.width * 0.08
                         }
@@ -699,7 +742,7 @@ Rectangle {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "帧率设置"
+                            text: "刷新上限"
                             color: "#AAAAAA"
                             Layout.preferredWidth: root.width * 0.08
                         }
@@ -769,7 +812,9 @@ Rectangle {
                             id: uiComboBox
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.comboBoxHeight
-                            model: ["显示", "隐藏","清除"]
+                            enabled: false
+                            opacity: 0.55
+                            model: ["暂不可用"]
                             onCurrentTextChanged: root.uiVisibilityChanged(currentText)
                             background: Rectangle {
                                 color: "#222222"
@@ -853,38 +898,12 @@ Rectangle {
                         }
                     }
 
-                    // 操作方式
-                    RowLayout {
+                    Text {
                         Layout.fillWidth: true
-                        Text {
-                            text: "操作方式"
-                            color: "white"
-                            Layout.preferredWidth: root.width * 0.08
-                        }
-                        Image{
-                            Layout.fillWidth: true
-                        }
-                        ComboBox {
-                            id:operationComboBox
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.comboBoxHeight
-                            model: ["自动", "半自动"]
-                            onCurrentTextChanged: {
-                                root.emitPerformanceSelectionIfReady()
-                            }
-                            background: Rectangle {
-                                color: "#222222"
-                                radius: root.height * 0.007
-                            }
-                            contentItem: RowLayout{
-                                Text {
-                                text: operationComboBox.displayText
-                                color: "#00BFFF"
-                                verticalAlignment: Text.AlignVCenter
-                                leftPadding: root.width * 0.008
-                                }
-                            }
-                        }
+                        wrapMode: Text.WordWrap
+                        text: "RMUL 3V3：哨兵全自动运行"
+                        color: "#91a4bb"
+                        font.pixelSize: root.height * 0.026
                     }
 
                     // 显示模式
@@ -920,39 +939,11 @@ Rectangle {
                         }
                     }
 
-                    // 底部状态栏
-                    RowLayout {
+                    Text {
                         Layout.fillWidth: true
-                        spacing: root.height * 0.02
-                        Item{
-                            Layout.fillWidth:true
-                        }
-                        Text {
-                            text: "温度: 45°C"
-                            color: "#888888"
-                            font.pixelSize: root.height * 0.02
-                        }
-                        Text {
-                            text: "|"
-                            color: "#444444"
-                        }
-                        Text {
-                            text: "模式: 正赛"
-                            color: "#888888"
-                            font.pixelSize: root.height * 0.02
-                        }
-                        Text {
-                            text: "|"
-                            color: "#444444"
-                        }
-                        Text {
-                            text: "通道: 0"
-                            color: "#888888"
-                            font.pixelSize: root.height * 0.02
-                        }
-                        Item{
-                            Layout.fillWidth:true
-                        }
+                        text: "2027 高校联盟赛 · 3V3"
+                        color: "#888888"
+                        font.pixelSize: root.height * 0.024
                     }
                 }
             }

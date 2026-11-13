@@ -12,6 +12,7 @@
  */
 
 // --- Qt 头文件 ---
+#include "core/RmulSettingsPolicy.h"
 #include <algorithm>
 #include <QApplication>
 #include <QAudioOutput>
@@ -173,10 +174,6 @@ QString chassisSelectionTextForValue(quint8 selection) {
     return QStringLiteral("血量优先");
   case 2:
     return QStringLiteral("功率优先");
-  case 3:
-    return QStringLiteral("英雄近战优先");
-  case 4:
-    return QStringLiteral("英雄远程优先");
   default:
     return QStringLiteral("初始设置");
   }
@@ -188,10 +185,6 @@ QString shooterSelectionTextForValue(quint8 selection) {
     return QStringLiteral("冷却优先");
   case 2:
     return QStringLiteral("爆发优先");
-  case 3:
-    return QStringLiteral("英雄近战优先");
-  case 4:
-    return QStringLiteral("英雄远程优先");
   default:
     return QStringLiteral("初始设置");
   }
@@ -888,6 +881,11 @@ void MainWindow::setupConnections() {
           });
   connect(m_gameData, &GameData::gameStateUpdated, this,
           &MainWindow::onGameStateUpdated);
+  connect(m_gameData, &GameData::matchStatusValidityChanged, this,
+          &MainWindow::syncSettingsPanelState);
+  connect(m_gameData, &GameData::robotDataUpdated, this, [this](quint8 id) {
+    if (m_gameData && id == m_gameData->currentRobotId()) syncSettingsPanelState();
+  });
   connect(m_gameData, &GameData::runeVoicePromptRequested, this,
           [this](int runeType, int remainingChances) {
             playRuneVoicePrompt(runeType, remainingChances);
@@ -3094,6 +3092,7 @@ void MainWindow::setupTimer() {
 void MainWindow::onGameStateUpdated() {
   if (!m_gameData)
     return;
+  syncSettingsPanelState();
 
   const auto &gameState = m_gameData->getGameState();
   GameStage stage = m_gameData->getCurrentStage();
@@ -4469,6 +4468,8 @@ void MainWindow::syncSettingsPanelState() {
       m_gameData ? m_gameData->getCurrentRobotId()
                  : static_cast<quint8>(ConfigManager::instance().getClientRobotId());
   QObject *root = m_qmlSettingsPanel->rootObject();
+  root->setProperty("matchStage", m_gameData && m_gameData->hasMatchStatus()
+      ? static_cast<int>(m_gameData->getCurrentStage()) : 0);
   root->setProperty("selectedRobotType", settingsRobotTypeLabel(currentRobotId));
   root->setProperty("activeRobotLabel",
                     m_exchangeHintLoginActive
@@ -4483,65 +4484,11 @@ void MainWindow::syncSettingsPanelState() {
   if (!currentRobot) {
     return;
   }
-  //当比赛开始后才由系统设置性能
-  const bool allowProtocolPerformanceSync =
-      m_gameData->getCurrentStage() == GameStage::BATTLE;
-  //获取底盘类型文本（协议）
-  const QString protocolChassisText =
-      chassisSelectionTextForValue(currentRobot->chassisPerformanceSelection);
-  const QString protocolShooterText =
-      shooterSelectionTextForValue(currentRobot->shooterPerformanceSelection);
-  const bool hasProtocolChassis =
-      currentRobot->chassisPerformanceSelection >= 1 &&
-      currentRobot->chassisPerformanceSelection <= 4;
-  const bool hasProtocolShooter =
-      currentRobot->shooterPerformanceSelection >= 1 &&
-      currentRobot->shooterPerformanceSelection <= 4;
-  //当前下拉框底盘类型文本
-  const QString currentChassisText =
-      root->property("chassisSelectionText").toString();
-  const QString currentShooterText =
-      root->property("shooterSelectionText").toString();
-  //未设置底盘类型
-  const bool chassisPanelStillInitial =
-      currentChassisText.isEmpty() ||
-      currentChassisText == QStringLiteral("初始设置");
-  const bool shooterPanelStillInitial =
-      currentShooterText.isEmpty() ||
-      currentShooterText == QStringLiteral("初始设置");
-  //未设置底盘类型且比赛开始 ，系统系统自动设置
-  if (allowProtocolPerformanceSync && hasProtocolChassis && chassisPanelStillInitial &&
-      currentChassisText != protocolChassisText) {
-    m_gameData->addSystemMessage(
-        QStringLiteral("未选择底盘性能，已被系统设置为“%1”")
-            .arg(protocolChassisText),
-        QStringLiteral("#FFFFFF"));
-  }
-  if (allowProtocolPerformanceSync && hasProtocolShooter && shooterPanelStillInitial &&
-      currentShooterText != protocolShooterText) {
-    m_gameData->addSystemMessage(
-        QStringLiteral("未选择发射机构类型，已被系统设置为“%1”")
-            .arg(protocolShooterText),
-        QStringLiteral("#FFFFFF"));
-  }
-
-  const QString nextChassisText =
-      (allowProtocolPerformanceSync && hasProtocolChassis)
-          ? protocolChassisText
-          : (currentChassisText.isEmpty() ? QStringLiteral("初始设置")
-                                          : currentChassisText);
-  const QString nextShooterText =
-      (allowProtocolPerformanceSync && hasProtocolShooter)
-          ? protocolShooterText
-          : (currentShooterText.isEmpty() ? QStringLiteral("初始设置")
-                                          : currentShooterText);
-
-  root->setProperty(
-      "chassisSelectionText",
-      nextChassisText);
-  root->setProperty(
-      "shooterSelectionText",
-      nextShooterText);
+  // Only received values are confirmed; draft changes never mutate RobotData.
+  root->setProperty("chassisSelectionText",
+      chassisSelectionTextForValue(currentRobot->chassisPerformanceSelection));
+  root->setProperty("shooterSelectionText",
+      shooterSelectionTextForValue(currentRobot->shooterPerformanceSelection));
 }
 
 quint8 MainWindow::resolveRobotIdFromSettingsSelection(
@@ -4822,8 +4769,9 @@ void MainWindow::setupKeyboardMouseControlTimer() {
 }
 
 bool MainWindow::canUseKeyboardMouseControl() const {
-  return m_networkManager && RM::InputHotkeyPolicy::canUseKeyboardMouseControl(
-                                 m_exchangeHintLoginActive, m_tacticalMode);
+  const int id = m_gameData ? m_gameData->currentRobotId() : 0;
+  return (id == 1 || id == 3 || id == 101 || id == 103) && m_networkManager &&
+      RM::InputHotkeyPolicy::canUseKeyboardMouseControl(m_exchangeHintLoginActive, m_tacticalMode);
 }
 
 bool MainWindow::isKeyboardMouseControlBlocked() const {
@@ -6074,12 +6022,13 @@ void MainWindow::onFpsChanged(const QString &fpsText) {
 
 void MainWindow::onPerformanceSelectionChanged(int shooter, int chassis,
                                                int sentryControl) {
-  // 安全保护：0 表示“初始设置/未选择”，允许与另一项已选值一起发送。
-  if (shooter < 0 || shooter > 4 || chassis < 0 || chassis > 4 ||
-      sentryControl < 0 || sentryControl > 1) {
-    qWarning() << "MainWindow: invalid RobotPerformanceSelectionCommand values"
-               << "shooter=" << shooter << "chassis=" << chassis
-               << "sentryControl=" << sentryControl;
+  const int id = m_gameData ? m_gameData->currentRobotId() : 0;
+  const int stage = m_gameData && m_gameData->hasMatchStatus()
+      ? static_cast<int>(m_gameData->getCurrentStage()) : 0;
+  if (!RM::RmulSettingsPolicy::canSelectPerformance(id, m_exchangeHintLoginActive, stage) ||
+      !RM::RmulSettingsPolicy::validPerformanceSelection(shooter, chassis, sentryControl)) {
+    qWarning() << "MainWindow: rejected RMUL performance selection" << id << stage
+               << shooter << chassis << sentryControl;
     return;
   }
 
@@ -7699,6 +7648,11 @@ void MainWindow::onARSettingsChanged() {
  * @param data 原始数据
  */
 void MainWindow::onSettingsLoginRequested(const QString &robotType) {
+  const int id = robotIdFromSettingsType(robotType);
+  if (!RM::RmulSettingsPolicy::isRosterRobot(id)) {
+    qWarning() << "MainWindow: rejected non-RMUL settings identity" << robotType;
+    return;
+  }
   qDebug() << "Login requested for:" << robotType;
   resetKeyboardMouseControlState(false);
   m_exchangeHintLoginActive = true;

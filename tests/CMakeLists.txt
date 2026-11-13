@@ -47,6 +47,12 @@ rm26_add_qt_test(TestRmul2027Hud test_rmul2027_hud)
 set_property(TEST TestRmul2027Hud APPEND PROPERTY ENVIRONMENT
     "QT_QPA_PLATFORM=offscreen" "QT_QUICK_BACKEND=software")
 
+# RMUL 2027 设置与性能指令测试
+add_executable(test_rmul2027_settings unit/test_rmul2027_settings.cpp)
+target_link_libraries(test_rmul2027_settings PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
+rm26_add_qt_test(TestRmul2027Settings test_rmul2027_settings)
+set_property(TEST TestRmul2027Settings APPEND PROPERTY ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # 血条组件测试
 add_executable(test_health_bar unit/test_health_bar.cpp)
 target_link_libraries(test_health_bar PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib)

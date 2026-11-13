@@ -131,7 +131,8 @@ Item {
                 transform: Translate { y: -5 }
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                visible:root.gamePhase === "准备阶段"
+                visible: root.gamePhase === "准备阶段" && root.gameDataContext
+                    && root.gameDataContext.needsInfantryPerformanceSelection
 
                 Image {
                     id: warningBg
@@ -151,7 +152,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    text: "请尽快设置机器人性能"
+                    text: "请确认步兵性能设置"
                     color: "#FF6666"
                     font.family: "Microsoft YaHei"
                     font.pixelSize: 16
@@ -161,10 +162,11 @@ Item {
             // 底部提示
             Text {
                 transform: Translate { y: -10 }
-                visible:root.gamePhase === "准备阶段"
+                visible: root.gamePhase === "准备阶段" && root.gameDataContext
+                    && root.gameDataContext.needsInfantryPerformanceSelection
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignHCenter
-                text: "未设置机器人性能，可按P键设置"
+                text: "尚未收到完整步兵性能，可按P键查看"
                 color: "#888888"
                 font.family: "Microsoft YaHei"
                 font.pixelSize: 12

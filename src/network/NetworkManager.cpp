@@ -824,11 +824,15 @@ bool NetworkManager::sendAirSupportCommand(int commandId) {
 }
 
 void NetworkManager::sendRobotPerformanceSelection(uint32_t shooter, uint32_t chassis, uint32_t sentryControl) {
+  if (shooter > 2 || chassis > 2 || sentryControl != 0 || (shooter == 0 && chassis == 0)) {
+    qWarning() << "NetworkManager: rejected obsolete/non-RMUL performance values";
+    return;
+  }
 #ifdef RM_HAS_MQTT
   robomaster::RobotPerformanceSelectionCommand cmd;
-  cmd.set_shooter(shooter);
-  cmd.set_chassis(chassis);
-  cmd.set_sentry_control(sentryControl);
+  if (shooter != 0) cmd.set_shooter(shooter);
+  if (chassis != 0) cmd.set_chassis(chassis);
+  // sentry_control is intentionally absent: this is an RMUL infantry request.
 
   const QByteArray payload = serializeMessage(cmd);
   if (payload.isEmpty()) {
@@ -1349,6 +1353,10 @@ void NetworkManager::processMqttMessage(const QString &topic,
                  .arg(msg.max_buffer_energy()).arg(msg.max_chassis_energy());
       m_gameData->updateRobotStaticStatus(msg);
     }
+  } else if (topic == "RobotPerformanceSelectionSync") {
+    robomaster::RobotPerformanceSelectionSync msg;
+    if (msg.ParseFromArray(payload.data(), payload.size()))
+      m_gameData->updateRobotPerformanceSelectionSync(msg);
   } else if (topic == "RobotDynamicStatus") {
     robomaster::RobotDynamicStatus msg;
     if (msg.ParseFromArray(payload.data(), payload.size())) {

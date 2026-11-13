@@ -1283,16 +1283,19 @@ class StateManager:
             }
 
     def set_robot_performance_selection_sync(
-        self, shooter=1, chassis=1, sentry_control=0
+        self, shooter=None, chassis=None, sentry_control=None
     ):
         with self.lock:
-            self.robot_performance_selection_sync = {
-                "shooter": self._normalize_robot_performance_value(shooter, 4),
-                "chassis": self._normalize_robot_performance_value(chassis, 4),
-                "sentry_control": self._normalize_robot_performance_value(
-                    sentry_control, 1
-                ),
-            }
+            # RMUL has only two infantry performance choices; omitted fields
+            # preserve the previous setting instead of silently selecting 0/1.
+            if any(value is not None and value not in (0, 1, 2)
+                   for value in (shooter, chassis)) or sentry_control not in (None, 0):
+                return False
+            for key, value in (("shooter", shooter), ("chassis", chassis)):
+                if value is not None:
+                    self.robot_performance_selection_sync[key] = int(value)
+                    self.robot_static_status["performance_system_" + key] = int(value)
+            self.robot_performance_selection_sync["sentry_control"] = 0
             self.log(
                 "Referee",
                 "Set RobotPerformanceSelectionSync: "
@@ -1300,6 +1303,7 @@ class StateManager:
                 f"chassis={self.robot_performance_selection_sync['chassis']}, "
                 f"sentry_control={self.robot_performance_selection_sync['sentry_control']}",
             )
+            return dict(self.robot_performance_selection_sync)
 
     def get_robot_performance_selection_sync(self):
         with self.lock:

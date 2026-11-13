@@ -250,19 +250,21 @@ class MQTTPublisher:
             try:
                 command = pb.RobotPerformanceSelectionCommand()
                 command.ParseFromString(payload)
-                if hasattr(self.state_manager, "set_robot_performance_selection_sync"):
-                    self.state_manager.set_robot_performance_selection_sync(
-                        shooter=command.shooter,
-                        chassis=command.chassis,
-                        sentry_control=command.sentry_control,
-                    )
-                self.publish_robot_performance_selection_sync(
-                    {
-                        "shooter": int(command.shooter),
-                        "chassis": int(command.chassis),
-                        "sentry_control": int(command.sentry_control),
-                    }
-                )
+                current_stage = self.state_manager.get_state()["gameStatus"]["current_stage"]
+                if int(self.current_robot_id or 1) not in (3, 103) or current_stage not in (1, 2, 3):
+                    return
+                values = {key: getattr(command, key) if command.HasField(key) else None
+                          for key in ("shooter", "chassis", "sentry_control")}
+                # 0 is a UI placeholder, not a selectable 2027 performance.
+                if (values["shooter"] not in (None, 1, 2)
+                        or values["chassis"] not in (None, 1, 2)
+                        or values["sentry_control"] not in (None, 0)
+                        or (values["shooter"] is None and values["chassis"] is None)):
+                    return
+                updated = self.state_manager.set_robot_performance_selection_sync(**values)
+                if not updated:
+                    return
+                self.publish_robot_performance_selection_sync(updated)
                 print(
                     "MQTTPublisher: RobotPerformanceSelectionCommand "
                     f"shooter={command.shooter} chassis={command.chassis} "

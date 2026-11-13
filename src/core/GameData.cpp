@@ -1981,6 +1981,17 @@ void GameData::updateGlobalUnitStatusInternal(const robomaster::GlobalUnitStatus
   emitDataChanged();
 }
 
+void GameData::updateRobotPerformanceSelectionSync(const robomaster::RobotPerformanceSelectionSync &data) {
+  // This topic has no robot_id: it belongs to the current MQTT identity.
+  if (m_currentRobotId != 3 && m_currentRobotId != 103) return;
+  auto *robot = findRobotById(m_currentRobotId);
+  if (!robot) return;
+  if (data.has_shooter()) robot->shooterPerformanceSelection = data.shooter() <= 2 ? data.shooter() : 0;
+  if (data.has_chassis()) robot->chassisPerformanceSelection = data.chassis() <= 2 ? data.chassis() : 0;
+  emit robotDataUpdated(m_currentRobotId);
+  emit myRobotUpdated();
+}
+
 void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data) {
   //MQTT协议绑定
   const RobotType parsedType =
@@ -2032,10 +2043,12 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
     robot->maxPower = static_cast<quint16>(data.max_power());
     robot->maxBufferEnergy = static_cast<quint16>(data.max_buffer_energy());
     robot->maxChassisEnergy = static_cast<quint16>(data.max_chassis_energy());
-    robot->shooterPerformanceSelection =
-        static_cast<quint8>(data.performance_system_shooter());
-    robot->chassisPerformanceSelection =
-        static_cast<quint8>(data.performance_system_chassis());
+    if (data.has_performance_system_shooter())
+      robot->shooterPerformanceSelection = data.performance_system_shooter() <= 2
+          ? static_cast<quint8>(data.performance_system_shooter()) : 0;
+    if (data.has_performance_system_chassis())
+      robot->chassisPerformanceSelection = data.performance_system_chassis() <= 2
+          ? static_cast<quint8>(data.performance_system_chassis()) : 0;
     const bool previousEngineConnected =
         robot->isClientConnected || robot->isControllerConnected;
     const RobotStatus previousStatus = robot->status;
@@ -2804,11 +2817,16 @@ const OutpostData &GameData::getOutpostByTeam(TeamColor team) const {
 
 //比赛状态协议的统一落点（重置逻辑在此函数中）
 void GameData::resetMatchStatus() {
+  for (auto &robot : m_robots) {
+    robot.shooterPerformanceSelection = 0;
+    robot.chassisPerformanceSelection = 0;
+  }
   m_officialWinner = m_officialEndReason = 255;
   m_hasStageElapsed = false;
   m_hasBattleScoreBaseline = false;
   const bool wasValid = m_hasMatchStatus;
   m_hasMatchStatus = false;
+  emit myRobotUpdated();
   emit settlementChanged();
   if (wasValid) emit matchStatusValidityChanged();
 }
@@ -2825,6 +2843,14 @@ void GameData::applyOfficialGameStateSnapshot(GameStage stage,
       previousStage != GameStage::BATTLE && stage == GameStage::BATTLE;
   const bool advancedRound =
       currentRound > 0 && m_gameState.currentRound < currentRound;
+  if (advancedRound || (previousStage == GameStage::SETTLEMENT &&
+                       stage != GameStage::SETTLEMENT)) {
+    for (auto &robot : m_robots) {
+      robot.shooterPerformanceSelection = 0;
+      robot.chassisPerformanceSelection = 0;
+    }
+    emit myRobotUpdated();
+  }
   const bool stageChanged = (m_gameState.gameProgress != stage);
   if (stage != GameStage::SETTLEMENT || stageChanged ||
       (currentRound > 0 && previousRound != currentRound)) {

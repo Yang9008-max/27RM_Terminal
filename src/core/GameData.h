@@ -568,6 +568,7 @@ Q_PROPERTY(int runeActivationStartRemainingTime READ runeActivationStartRemainin
 Q_PROPERTY(QVariantList runeGroupAverageRings READ runeGroupAverageRings NOTIFY runeStatusChanged)
 Q_PROPERTY(QVariantList runeGroupDeltas READ runeGroupDeltas NOTIFY runeStatusChanged)
 Q_PROPERTY(int currentRobotId READ currentRobotId NOTIFY myRobotUpdated)
+Q_PROPERTY(bool needsInfantryPerformanceSelection READ needsInfantryPerformanceSelection NOTIFY myRobotUpdated)
 Q_PROPERTY(bool redOutpostDead READ redOutpostDead NOTIFY outpostDestroyed)
 Q_PROPERTY(bool blueOutpostDead READ blueOutpostDead NOTIFY outpostDestroyed)
 Q_PROPERTY(float sentryStartX READ sentryStartX NOTIFY sentryPathUpdated)
@@ -970,6 +971,11 @@ public:
   QVariantList runeGroupAverageRings() const;
   QVariantList runeGroupDeltas() const;
   int currentRobotId() const { return m_currentRobotId; }
+  bool needsInfantryPerformanceSelection() const {
+    const auto *robot = getCurrentRobot();
+    return (m_currentRobotId == 3 || m_currentRobotId == 103) && robot &&
+        (robot->shooterPerformanceSelection == 0 || robot->chassisPerformanceSelection == 0);
+  }
   bool redOutpostDead() const { return m_redOutpostData.isDestroyed; }
   bool blueOutpostDead() const { return m_blueOutpostData.isDestroyed; }
   //哨兵规划路径访问器
@@ -1078,6 +1084,7 @@ public:
 
   //更新机器人Static和Dynamic状态
   void updateRobotStaticStatus(const robomaster::RobotStaticStatus &data);
+  void updateRobotPerformanceSelectionSync(const robomaster::RobotPerformanceSelectionSync &data);
   void updateRobotDynamicStatus(const robomaster::RobotDynamicStatus &data);
 
   //更新机器人位置朝向

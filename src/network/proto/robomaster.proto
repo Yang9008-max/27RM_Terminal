@@ -430,8 +430,8 @@ message RobotStaticStatus {
   uint32 alive_state = 3;
   uint32 robot_id = 4;
   uint32 robot_type = 5;
-  uint32 performance_system_shooter = 6;
-  uint32 performance_system_chassis = 7;
+  optional uint32 performance_system_shooter = 6;
+  optional uint32 performance_system_chassis = 7;
   uint32 level = 8;
   uint32 max_health = 9;
   uint32 max_heat = 10;
@@ -566,15 +566,15 @@ message TechCoreMotionStateSync {
 }
 
 message RobotPerformanceSelectionCommand {
-  uint32 shooter = 1;
-  uint32 chassis = 2;
-  uint32 sentry_control = 3;
+  optional uint32 shooter = 1;
+  optional uint32 chassis = 2;
+  optional uint32 sentry_control = 3;
 }
 
 message RobotPerformanceSelectionSync {
-  uint32 shooter = 1;
-  uint32 chassis = 2;
-  uint32 sentry_control = 3;
+  optional uint32 shooter = 1;
+  optional uint32 chassis = 2;
+  optional uint32 sentry_control = 3;
 }
 
 message HeroDeployModeEventCommand {
