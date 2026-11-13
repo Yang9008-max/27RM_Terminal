@@ -21,3 +21,5 @@
 后续真实桌面验收与136高HUD布局修正位于 `rmul2027/02-operator-check`，记录见 `docs/development/desktop-acceptance-20261113.md`，完成标签 `rmul2027-operator-20261113-done`。已安装并使用agent-desktop及agent-desktop-windows技能；TAB长按、真实图传和整机链路仍未验收。
 
 第三阶段位于 `rmul2027/03-settlement`：模拟器按RMUL控制度→攻击伤害→1/3/7血量→平局裁决；客户端仅消费GameStatus官方结果；结算面板替换为双方各1/3/7三车。模拟器战斗时钟已改为300秒，完整演示含5秒倒计时共305秒。旧复活公式、控制区/阵亡自动扣分和其他旧页面仍未迁移。验收入口 `tools/verify_rmul2027_data.py --settlement`，记录及规则边界见 `docs/development/rmul2027-settlement.md`。运行主窗口集成测试时应停止独立模拟器，避免旧测试自动连接本地3333端口而接收外部阶段广播。
+
+第三阶段完成标签 `rmul2027-step-03-done`：复用原红/蓝胜利PNG动画，之后显示带机器人图标和动态对比条的3V3战报。结算跨操作页/战术页可见；Esc关闭后同局统计不重开，Ctrl+R重看真实结果。最终Release/CTest 30项通过，独立MQTT结算26帧及HUD14帧通过；Python 50项中44通过、6项环境跳过。真实桌面已确认红胜、蓝胜、归零、平局和新局清理；真实硬件与音频仍未验收。

@@ -3,6 +3,8 @@
 #include "robomaster.pb.h"
 #include "widgets/GameResultWidget.h"
 #include "network/NetworkManager.h"
+#include "ui/MainWindow.h"
+#include <QKeyEvent>
 #include <QLabel>
 #include <QFile>
 #include <QSaveFile>
@@ -15,6 +17,47 @@
 class TestRmul2027Settlement : public QObject {
   Q_OBJECT
 private slots:
+  void initTestCase() {
+    Q_INIT_RESOURCE(qml);
+    Q_INIT_RESOURCE(resources);
+    qputenv("RM_DISABLE_AUDIO", "1");
+  }
+  void mainWindowAutoShowsAndHonorsDismissal() {
+    RM::MainWindow window;
+    QKeyEvent operation(QEvent::KeyPress, Qt::Key_T, Qt::ControlModifier);
+    QApplication::sendEvent(window.centralWidget(), &operation);
+    auto *data = window.findChild<GameData *>();
+    auto *panel = window.findChild<GameResultWidget *>();
+    QVERIFY(data && panel);
+    robomaster::GameStatus status;
+    status.set_current_stage(4);
+    status.set_current_round(1);
+    data->updateGameStatus(status);
+    status.set_current_stage(5);
+    status.set_game_result(1);
+    status.set_end_reason(2);
+    data->updateGameStatus(status);
+    QVERIFY(!panel->isHidden());
+    QKeyEvent tactical(QEvent::KeyPress, Qt::Key_T, Qt::ControlModifier);
+    QApplication::sendEvent(window.centralWidget(), &tactical);
+    QVERIFY(!panel->isHidden());
+    QKeyEvent close(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(&window, &close);
+    QVERIFY(panel->isHidden());
+    QKeyEvent backToOperation(QEvent::KeyPress, Qt::Key_T, Qt::ControlModifier);
+    QApplication::sendEvent(window.centralWidget(), &backToOperation);
+    QVERIFY(panel->isHidden());
+    data->updateGameStatus(status);
+    QVERIFY(panel->isHidden());
+    status.set_current_round(2);
+    status.set_game_result(2);
+    data->updateGameStatus(status);
+    QVERIFY(!panel->isHidden());
+    data->resetMatchStatus();
+    QVERIFY(panel->isHidden());
+    data->updateGameStatus(status);
+    QVERIFY(!panel->isHidden());
+  }
   void officialResultOverridesScore() {
     GameData data;
     robomaster::GameStatus status;

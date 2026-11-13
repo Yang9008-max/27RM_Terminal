@@ -247,6 +247,8 @@ def main():
     if args.hud or args.settlement:
         env.update(QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software",
                    QT_QPA_PLATFORM_PLUGIN_PATH=str(receiver.parent.parent / "platforms"))
+    if args.settlement:
+        env["RM_DISABLE_RESULT_ANIMATION"] = "1"  # Deterministic statistics screenshots; animation has its own test.
     no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     with (run_dir / "broker.log").open("w", encoding="utf-8") as output:
         broker = subprocess.Popen([str(broker_exe.resolve()), "-c", str(config)], env=env,

@@ -5,6 +5,10 @@
 #include <QMap>
 #include <QLabel>
 #include <QSoundEffect>
+#include <QTimer>
+#include <QElapsedTimer>
+#include <QVariantAnimation>
+#include <QPixmap>
 
 class GameResultWidget : public QWidget {
   Q_OBJECT
@@ -20,6 +24,7 @@ public:
 signals:
   void closeRequested();
   void resultAnnounced();
+  void victoryAnimationStarted(quint8 winner);
 protected:
   void paintEvent(QPaintEvent *) override;
   void resizeEvent(QResizeEvent *) override;
@@ -30,6 +35,9 @@ private:
   void addLabel(const QString &name, const QRect &rect, int size, const QString &color = "#e7eef8");
   void layoutLabels();
   void announceResult();
+  void startVictoryAnimation();
+  void finishVictoryAnimation();
+  void advanceVictoryFrame();
   QMap<QString, QLabel *> m_labels;
   QMap<QString, QRect> m_rects;
   QMap<QString, int> m_fontSizes;
@@ -38,4 +46,12 @@ private:
   QSoundEffect *m_sound;
   bool m_playSound = true;
   QString m_announcedKey;
+  QLabel *m_victoryOverlay;
+  QTimer m_frameTimer;
+  QElapsedTimer m_frameClock;
+  QStringList m_framePaths;
+  int m_frameIndex = -1;
+  QVariantAnimation m_barAnimation;
+  qreal m_reveal = 1;
+  QMap<QString, QPixmap> m_robotIcons;
 };

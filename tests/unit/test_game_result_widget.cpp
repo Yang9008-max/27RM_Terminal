@@ -7,6 +7,36 @@ class TestGameResultWidget : public QObject {
   Q_OBJECT
 
 private slots:
+  void initTestCase() { Q_INIT_RESOURCE(resources); }
+  void testOriginalVictoryAnimationAndCancellation() {
+    qunsetenv("RM_DISABLE_RESULT_ANIMATION");
+    GameResultWidget widget;
+    widget.setPlayVictoryOnShow(false);
+    QSignalSpy started(&widget, &GameResultWidget::victoryAnimationStarted);
+    RmulSettlementSnapshot s;
+    s.inSettlement = true;
+    widget.setSnapshot(s); widget.show();
+    QCOMPARE(started.count(), 0);
+    s.winner = 1; s.endReason = 2;
+    widget.setSnapshot(s);
+    QCOMPARE(started.count(), 1);
+    auto *overlay = widget.findChild<QLabel *>("victoryAnimation");
+    QVERIFY(overlay && overlay->isVisible());
+    QVERIFY(!overlay->pixmap().isNull());
+    s.redControlPoints = 600;
+    widget.setSnapshot(s);
+    QCOMPARE(started.count(), 1);
+    QTRY_VERIFY_WITH_TIMEOUT(overlay->isHidden(), 5000);
+    QVERIFY(widget.findChild<QLabel *>("result")->isVisible());
+    s.winner = 2;
+    widget.setSnapshot(s);
+    QCOMPARE(started.count(), 2);
+    QVERIFY(overlay->isVisible());
+    s.winner = 255; s.endReason = 255;
+    widget.setSnapshot(s);
+    QVERIFY(overlay->isHidden());
+    QCOMPARE(widget.findChild<QLabel *>("result")->text(), QStringLiteral("等待裁判结果"));
+  }
   void testRmulResultsAndUnknownValues() {
     GameResultWidget widget;
     auto text = [&](const char *name) { return widget.findChild<QLabel *>(name)->text(); };

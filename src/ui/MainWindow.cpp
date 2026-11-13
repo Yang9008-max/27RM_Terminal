@@ -3142,17 +3142,9 @@ void MainWindow::onGameStateUpdated() {
   updateRunePanelVisibility();
 
   if (enteredSettlement && m_bgmPlayer) {
-    // 进入结算：如果双方基地血量均大于0 且 比赛时间不为0，视为比赛异常终止，播放异常终止音效
-    bool bothBasesAlive = (m_gameData->redBaseHealth() > 0) && (m_gameData->blueBaseHealth() > 0);
-    bool timeNotZero = (m_gameData->getGameTime() != 0);
-    if (bothBasesAlive && timeNotZero) {
-      qDebug() << "[MainWindow] Abnormal termination detected.";
-      // 异常终止和正常结算暂沿用同一个可选提示文件。
-      playBackgroundMusic("resources/sounds/20game_finish.mp3");
-    } else {
-      // 播放结算音效，一次性，不循环
-      playBackgroundMusic("resources/sounds/20game_finish.mp3");
-    }
+    // Stop battle music here. The result widget announces only a confirmed
+    // GameStatus result, without a second sound or a base-HP inference.
+    m_bgmPlayer->stop();
   }
 
   // 准备和自检阶段只在可选语音包存在时播放背景音。
@@ -3194,7 +3186,9 @@ void MainWindow::onGameStateUpdated() {
 
   // 音频暂停/恢复处理：直接根据 GameData::is_paused() 设置播放状态
   if (m_gameData && m_bgmPlayer) {
-    if (m_gameData->is_paused()) {
+    if (stage == GameStage::SETTLEMENT) {
+      m_bgmPlayer->stop();
+    } else if (m_gameData->is_paused()) {
       m_bgmPlayer->pause();
     } else {
       m_bgmPlayer->play();
@@ -4087,7 +4081,6 @@ void MainWindow::applyTacticalMode(bool enabled) {
     setVisibleIfNeeded(m_rightSideArea, false);
     setVisibleIfNeeded(m_battleMessage, false);
     setVisibleIfNeeded(m_helpOverlay, false);
-    setVisibleIfNeeded(m_gameResultWidget, false);
     setVisibleIfNeeded(m_qmlDeployModePanel, false);
     setVisibleIfNeeded(m_qmlExchangePanel, false);
     setVisibleIfNeeded(m_qmlSiloPanel, false);
@@ -4100,10 +4093,6 @@ void MainWindow::applyTacticalMode(bool enabled) {
     setVisibleIfNeeded(m_rightSideArea, true);
     setVisibleIfNeeded(m_battleMessage, true);
     setVisibleIfNeeded(m_helpOverlay, m_helpOverlayHotkeyActive);
-    if (m_gameResultWidget && m_gameData &&
-        m_gameData->getCurrentStage() == GameStage::SETTLEMENT) {
-      setVisibleIfNeeded(m_gameResultWidget, true);
-    }
     updateExchangeHintText(m_selectedRobotTypeFromSettings);
     updateSiloPanelVisibility();
   }
@@ -6424,6 +6413,13 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
       event->accept();
       return true;
     }
+    if (m_gameResultWidget &&
+        ((keyEvent->key() == Qt::Key_Escape && !m_gameResultWidget->isHidden()) ||
+         (keyEvent->key() == Qt::Key_R && keyEvent->modifiers() == Qt::ControlModifier &&
+          m_gameData && m_gameData->settlementSnapshot().inSettlement))) {
+      keyPressEvent(keyEvent);
+      return true;
+    }
     if (m_tacticalMode &&
         RM::InputHotkeyPolicy::isTacticalLargeMapToggleHotkey(keyEvent) &&
         !isInputEventFromClientWindow(obj)) {
@@ -6620,6 +6616,23 @@ bool MainWindow::event(QEvent *e) {
 
 void MainWindow::keyPressEvent(QKeyEvent *event) {
   if (tryHandleSettingsPanelShortcut(event)) {
+    event->accept();
+    return;
+  }
+
+  // Settlement shortcuts work on both operation and tactical screens.
+  if (m_gameResultWidget && event->key() == Qt::Key_Escape && !m_gameResultWidget->isHidden()) {
+    m_gameResultWidget->hide();
+    event->accept();
+    return;
+  }
+  if (m_gameResultWidget && event->key() == Qt::Key_R && event->modifiers() == Qt::ControlModifier) {
+    if (!m_gameResultWidget->isHidden()) m_gameResultWidget->hide();
+    else if (m_gameData && m_gameData->settlementSnapshot().inSettlement) {
+      refreshGameResultWidgetStats();
+      m_gameResultWidget->show();
+      updateGameResultWidgetGeometry();
+    }
     event->accept();
     return;
   }
@@ -7321,14 +7334,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
   } break;
 
   case Qt::Key_R:
-    if (event->modifiers() & Qt::ControlModifier && m_gameResultWidget) {
-      if (m_gameResultWidget->isVisible()) m_gameResultWidget->hide();
-      else if (m_gameData && m_gameData->settlementSnapshot().inSettlement) {
-        refreshGameResultWidgetStats();
-        m_gameResultWidget->show();
-        updateGameResultWidgetGeometry();
-      }
-    }
     break;
   // 按下M按键模拟非脱战状态
   case Qt::Key_Y:
@@ -7399,6 +7404,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
   case Qt::Key_Escape:
     // ESC键隐藏所有面板
     hideAllPanels();
+    if (m_gameResultWidget) m_gameResultWidget->hide();
     break;
   default:
     QMainWindow::keyPressEvent(event);
