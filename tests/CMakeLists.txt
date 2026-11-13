@@ -35,6 +35,12 @@ add_executable(test_rmul2027_data unit/test_rmul2027_data.cpp)
 target_link_libraries(test_rmul2027_data PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
 rm26_add_qt_test(TestRmul2027Data test_rmul2027_data)
 
+add_executable(test_rmul2027_hud unit/test_rmul2027_hud.cpp)
+target_link_libraries(test_rmul2027_hud PRIVATE Qt6::Core Qt6::Qml Qt6::Quick Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
+rm26_add_qt_test(TestRmul2027Hud test_rmul2027_hud)
+set_property(TEST TestRmul2027Hud APPEND PROPERTY ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen" "QT_QUICK_BACKEND=software")
+
 # 血条组件测试
 add_executable(test_health_bar unit/test_health_bar.cpp)
 target_link_libraries(test_health_bar PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib)

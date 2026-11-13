@@ -538,6 +538,7 @@ Q_PROPERTY(int redScore READ redScore NOTIFY gameStateUpdated)
 Q_PROPERTY(int blueScore READ blueScore NOTIFY gameStateUpdated)
 Q_PROPERTY(int currentRound READ currentRound NOTIFY gameStateUpdated)
 Q_PROPERTY(int remainingTime READ getGameTime NOTIFY gameTimeUpdated)
+Q_PROPERTY(bool hasMatchStatus READ hasMatchStatus NOTIFY matchStatusValidityChanged)
 Q_PROPERTY(QString gamePhase READ gamePhaseString NOTIFY gameStateUpdated)
   Q_PROPERTY(bool is_paused READ is_paused NOTIFY gameStateUpdated)
 
@@ -722,6 +723,7 @@ public:
     const bool teamChanged = (m_currentRobotId >= 100) != (robotId >= 100);
     m_currentRobotId = robotId;
     resetGlobalUnitStatus();
+    resetMatchStatus();
     emit myRobotUpdated();
     if (teamChanged) {
       emit currentTeamEconomyChanged();
@@ -948,6 +950,8 @@ public:
   const GameState &getGameState() const { return m_gameState; }
   GameStage getCurrentStage() const { return m_gameState.gameProgress; }
   quint16 getGameTime() const { return m_gameState.gameTime; }
+  bool hasMatchStatus() const { return m_hasMatchStatus; }
+  Q_INVOKABLE void resetMatchStatus();
   bool isGameActive() const {
     return m_gameState.gameStarted && !m_gameState.gameEnded;
   }
@@ -1226,6 +1230,7 @@ public slots:
   QString heroFrameDataUrl() const;
 
 signals:
+  void matchStatusValidityChanged();
   // 兑换更新信号
   void exchangeCountsUpdated();
 
@@ -1511,6 +1516,7 @@ private:
   QString m_heroFrameDataUrl;
   // 是否使用外部钟作为比赛时间源。默认 true（优先使用来自网络的 gameTime）
   bool m_useExternalGameClock = true;
+  bool m_hasMatchStatus = false;
   QList<OutpostHealthSample> m_redOutpostHealthSamples;
   QList<OutpostHealthSample> m_blueOutpostHealthSamples;
   // 仅记录实际发出的有效提示；被 15 秒间隔丢弃的候选不更新此时间戳。

@@ -13,6 +13,8 @@
         <file>ActionButton.qml</file>
         <file>TabStatsPanel.qml</file>
         <file>TopInfoBar.qml</file>
+        <file>RmulTeamPanel.qml</file>
+        <file>RmulRobotCard.qml</file>
         <file>MiniMap.qml</file>
         <file>OutpostStatusBadge.qml</file>
         <file>RobotStatusItem.qml</file>

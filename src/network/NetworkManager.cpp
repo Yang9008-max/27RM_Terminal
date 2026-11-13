@@ -1048,7 +1048,10 @@ void NetworkManager::processData(const QByteArray &data) {
 
 void NetworkManager::startMqtt(const QString &brokerUri,
                                const QString &clientId) {
-  if (m_gameData) m_gameData->resetGlobalUnitStatus();
+  if (m_gameData) {
+    m_gameData->resetGlobalUnitStatus();
+    m_gameData->resetMatchStatus();
+  }
   // 创建 MQTT 管理器
   if (!m_mqttManager) {
     m_mqttManager = new MqttManager(this);
@@ -1068,7 +1071,10 @@ void NetworkManager::startMqtt(const QString &brokerUri,
             // 启动 MQTT 消息日志会话
             MqttLogger::instance()->startSession();
           } else {
-            if (m_gameData) m_gameData->resetGlobalUnitStatus();
+            if (m_gameData) {
+              m_gameData->resetGlobalUnitStatus();
+              m_gameData->resetMatchStatus();
+            }
             MqttLogger::instance()->stopSession();
           }
         });

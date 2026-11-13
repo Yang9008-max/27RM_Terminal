@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the simulator publisher through a local MQTT broker into the Qt receiver.
 
-Requires sim's Python environment and the built test_rmul2027_data executable.
+Requires sim's Python environment and the built Qt receiver executable.
+Use --hud to also validate the actual QML text and save rendered HUD screenshots.
 The receiver acknowledges each frame before the next one is sent.
 """
 from __future__ import annotations
@@ -91,8 +92,15 @@ def scenario(robot_id):
     return manager, {"robot_id": robot_id, "frames": frames}
 
 
-def run_receiver(robot_id, port, receiver, run_dir, env):
+def run_receiver(robot_id, port, receiver, run_dir, env, hud=False):
     manager, fixture = scenario(robot_id)
+    if hud:
+        for index, frame in enumerate(fixture["frames"]):
+            frame["match_status"] = {
+                "current_stage": 4, "current_round": 1,
+                "stage_countdown_sec": [300, 299, 298, 0, 0, 0, 0][index],
+                "is_paused": index == 2,
+            }
     fixture_path = run_dir / f"fixture-{robot_id}.json"
     fixture_path.write_text(json.dumps(fixture, ensure_ascii=False, indent=2), encoding="utf-8")
     progress_path = run_dir / f"progress-{robot_id}.json"
@@ -123,6 +131,8 @@ def run_receiver(robot_id, port, receiver, run_dir, env):
                 wait_for(lambda: is_ready(index), child)
                 # 调用真实模拟器编码和发布入口，不在测试里手写wire数据。
                 publisher._publish_global_unit_status(frame["state"])
+                if hud:
+                    publisher._publish_game_status(frame["match_status"])
             code = child.wait(timeout=10)
             if code != 0:
                 raise RuntimeError(f"Qt receiver failed ({code}); see {test_log}")
@@ -137,11 +147,12 @@ def run_receiver(robot_id, port, receiver, run_dir, env):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--receiver", type=Path,
-                        default=ROOT / "build/windows-ucrt64/tests/test_rmul2027_data.exe")
+    parser.add_argument("--hud", action="store_true", help="Verify real RMUL QML HUD and save screenshots")
+    parser.add_argument("--receiver", type=Path)
     parser.add_argument("--broker-exe", type=Path)
     args = parser.parse_args()
-    receiver = args.receiver.resolve()
+    target = "test_rmul2027_hud.exe" if args.hud else "test_rmul2027_data.exe"
+    receiver = (args.receiver or ROOT / "build/windows-ucrt64/tests" / target).resolve()
     if not receiver.is_file():
         parser.error(f"Receiver not built: {receiver}")
     broker_exe = args.broker_exe or ROOT / ".deps/msys64/ucrt64/bin/mosquitto.exe"
@@ -162,6 +173,9 @@ def main():
     env = dict(os.environ)
     native_bin = ROOT / ".deps/msys64/ucrt64/bin"
     env["PATH"] = os.pathsep.join([str(native_bin), str(receiver.parent.parent), env.get("PATH", "")])
+    if args.hud:
+        env.update(QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software",
+                   QT_QPA_PLATFORM_PLUGIN_PATH=str(receiver.parent.parent / "platforms"))
     no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     with (run_dir / "broker.log").open("w", encoding="utf-8") as output:
         broker = subprocess.Popen([str(broker_exe.resolve()), "-c", str(config)], env=env,
@@ -169,12 +183,13 @@ def main():
         try:
             wait_for(lambda: port_open(port), broker)
             with (run_dir / "simulator.log").open("w", encoding="utf-8") as simulator_log, redirect_stdout(simulator_log):
-                results = [run_receiver(robot_id, port, receiver, run_dir, env) for robot_id in (1, 103)]
+                results = [run_receiver(robot_id, port, receiver, run_dir, env, args.hud) for robot_id in (1, 103)]
         finally:
             broker.terminate()
             broker.wait(timeout=5)
     report = {"verified_at_beijing": now.isoformat(timespec="seconds"),
               "transport": "MQTT/Protobuf via localhost Mosquitto",
+              "validation_target": "QML HUD" if args.hud else "GameData",
               "results": results, "total_frames": sum(r["frames"] for r in results)}
     report_path = run_dir / "result.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

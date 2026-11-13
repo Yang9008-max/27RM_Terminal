@@ -1220,6 +1220,9 @@ QVariantMap GameData::getRobotInfo(int robotId) const {
     map["panelIsOffline"] = !panelConnected;
     map["panelIsDead"] = panelConnected && panelHp <= 0;
     map["panelLevel"] = panelLevel;
+    // RMUL HUD uses received global health, independently of connection state.
+    map["hasGlobalHealth"] = robot->hasTabGlobalSnapshot;
+    map["globalHealth"] = robot->tabGlobalCurrentHP;
   } else {
     map["hp"] = 0;
     map["robotId"] = m_currentRobotId;
@@ -1263,6 +1266,8 @@ QVariantMap GameData::getRobotInfo(int robotId) const {
     map["panelIsOffline"] = true;
     map["panelIsDead"] = false;
     map["panelLevel"] = 0;
+    map["hasGlobalHealth"] = false;
+    map["globalHealth"] = 0;
   }
   return map;
 }
@@ -2627,6 +2632,8 @@ void GameData::resetGlobalUnitStatus() {
   for (auto &robot : m_robots) {
     robot.hasTabGlobalSnapshot = false;
     robot.tabGlobalCurrentHP = 0;
+    // Notify cards directly: dataChanged() is throttled and may skip a reset.
+    emit robotDataUpdated(robot.robotId);
   }
   if (hadControlPoints) emit controlPointsChanged();
   emitDataChanged();
@@ -2790,6 +2797,12 @@ const OutpostData &GameData::getOutpostByTeam(TeamColor team) const {
 }
 
 //比赛状态协议的统一落点（重置逻辑在此函数中）
+void GameData::resetMatchStatus() {
+  if (!m_hasMatchStatus) return;
+  m_hasMatchStatus = false;
+  emit matchStatusValidityChanged();
+}
+
 void GameData::applyOfficialGameStateSnapshot(GameStage stage,
                                              quint16 remainingTime,
                                              quint16 redScore,
@@ -2980,6 +2993,10 @@ void GameData::applyOfficialGameStateSnapshot(GameStage stage,
     m_popupStateMachine->endBatchUpdate();
   }
 
+  if (!m_hasMatchStatus) {
+    m_hasMatchStatus = true;
+    emit matchStatusValidityChanged();
+  }
   if (stageChanged) {
     emit gameStageChanged(stage);
   }

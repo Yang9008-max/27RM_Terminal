@@ -51,6 +51,7 @@
 ## 开发与验证
 
 - [2027 RMUL第一阶段数据链路](development/rmul2027-data.md)：控制度、血量槽位和模拟器到终端的验收。
+- [2027 RMUL第二阶段公共信息栏](development/rmul2027-hud.md)：控制度、1/3/7阵容、比赛时钟、QML链路验收及截图。
 - [2027 RMUL Git工作流](development/git-workflow.md)：重大改动前的提交、标签和分支约定。
 
 - [客户端开发指南](rm26-client-dev-guide.md)：环境、构建、模块边界、测试、联调和排错；
