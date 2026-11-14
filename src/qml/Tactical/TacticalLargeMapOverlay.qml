@@ -5,10 +5,10 @@ Item {
 
     objectName: "tacticalLargeMapOverlay"
     property var pageRoot: null
-    readonly property real mapAspectRatio: 840 / 474
+    readonly property real mapAspectRatio: 12 / 8
     readonly property real mapWidth: Math.min(width, height * mapAspectRatio)
     readonly property real mapHeight: mapWidth / mapAspectRatio
-    readonly property real mapVisualScale: mapWidth / 840
+    readonly property real mapVisualScale: mapWidth / 1120
 
     Rectangle {
         anchors.fill: parent
@@ -26,7 +26,7 @@ Item {
         onWheel: function(wheel) { wheel.accepted = true }
     }
 
-    TacticalRadarMap {
+    RmulFieldOverview {
         id: tacticalLargeMap
 
         objectName: "tacticalLargeMap"
@@ -36,20 +36,14 @@ Item {
         z: 1
         visualScale: tacticalLargeMapOverlay.mapVisualScale
         threadedCanvasRendering: true
-        model: pageRoot ? pageRoot.tacticalMapModel : null
-        allyStatusModel: pageRoot ? pageRoot.allyRobotsForMap : []
-        enemyStatusModel: pageRoot ? pageRoot.enemyRobotsForMap : []
-        allyIsBlue: pageRoot ? pageRoot.allyIsBlue : false
-        enemyIsBlue: pageRoot ? pageRoot.enemyIsBlue : true
-        backgroundSource: pageRoot ? pageRoot.tacticalMapBackgroundSource : ""
         viewMirrored: pageRoot ? pageRoot.tacticalMapViewMirrored : false
         pageRoot: tacticalLargeMapOverlay.pageRoot
     }
 
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 24
+        anchors.top: parent.top
+        anchors.topMargin: 8
         z: 2
         width: largeMapHintText.implicitWidth + 32
         height: largeMapHintText.implicitHeight + 16

@@ -7,6 +7,7 @@ HudPanel {
     property bool centralMode: false
     property bool showRealVideo: false
     property bool showGrid: false
+    property bool useDefaultImage: true
     property string liveFrameSource: ""
     property real liveFps: -1
     property bool gameActive: false  // 父级兼容字段；默认图显示只取决于是否有可见图传帧
@@ -68,8 +69,8 @@ HudPanel {
         // 默认图片 — 无图传画面时始终作为占位，不随比赛阶段隐藏
         Image {
             anchors.fill: parent
-            visible: !root.hasVisibleVideo
-            source: root.defaultImage
+            visible: !root.hasVisibleVideo && root.useDefaultImage
+            source: visible ? root.defaultImage : ""
             fillMode: Image.PreserveAspectCrop
             cache: false
             asynchronous: true
@@ -77,6 +78,11 @@ HudPanel {
         }
 
         // 无图传暗化蒙层 — 比赛中断帧时也保持默认图可见
+        Text {
+            anchors.centerIn: parent
+            visible: !root.hasVisibleVideo && !root.useDefaultImage
+            text: "等待相机画面"; color: "#8fa6b8"; font.pixelSize: 18
+        }
         Rectangle {
             visible: !root.hasVisibleVideo
             anchors.fill: parent

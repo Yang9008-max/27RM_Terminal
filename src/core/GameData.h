@@ -649,6 +649,7 @@ Q_PROPERTY(quint32 redControlPoints READ redControlPoints NOTIFY controlPointsCh
 Q_PROPERTY(quint32 blueControlPoints READ blueControlPoints NOTIFY controlPointsChanged)
 Q_PROPERTY(bool hasRedControlPoints READ hasRedControlPoints NOTIFY controlPointsChanged)
 Q_PROPERTY(bool hasBlueControlPoints READ hasBlueControlPoints NOTIFY controlPointsChanged)
+Q_PROPERTY(QVariantMap rmulTacticalData READ rmulTacticalData NOTIFY settlementChanged)
 
 // === ~ 面板伤害统计  ===
 Q_PROPERTY(
@@ -1064,6 +1065,7 @@ public:
   // 判定胜者：比较战斗阶段起点与结算阶段当前比分的增量（0=平局,1=红方,2=蓝方）
   quint8 determineWinner() const;
   RmulSettlementSnapshot settlementSnapshot() const;
+  QVariantMap rmulTacticalData() const;
 
   bool kickedAll() const { return m_kickedAll; }
   void setKickedAll(bool value);

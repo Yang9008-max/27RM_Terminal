@@ -3518,6 +3518,36 @@ RmulSettlementSnapshot GameData::settlementSnapshot() const {
   return snapshot;
 }
 
+QVariantMap GameData::rmulTacticalData() const {
+  // Share the presence-aware, colour-resolved snapshot with settlement. Do not
+  // inherit the legacy tactical analyzer's six-car roster or default HP values.
+  const auto snapshot = settlementSnapshot();
+  auto optionalValue = [](const std::optional<quint32> &value) -> QVariant {
+    return value ? QVariant::fromValue(*value) : QVariant();
+  };
+  auto team = [&](bool blue) {
+    const auto &health = blue ? snapshot.blueHealth : snapshot.redHealth;
+    QVariantList robots;
+    quint64 sum = 0;
+    bool complete = true;
+    const std::array<int, 3> rosterIds{1, 3, 7};
+    const std::array<QString, 3> labels{QStringLiteral("重装"), QStringLiteral("步兵"), QStringLiteral("哨兵")};
+    const std::array<QString, 3> icons{QStringLiteral("hero"), QStringLiteral("soldier"), QStringLiteral("guard")};
+    for (size_t i = 0; i < rosterIds.size(); ++i) {
+      complete &= health[i].has_value();
+      if (health[i]) sum += *health[i];
+      robots.append(QVariantMap{{"robotId", rosterIds[i] + (blue ? 100 : 0)},
+                                {"slot", rosterIds[i]}, {"label", labels[i]},
+                                {"icon", icons[i]}, {"health", optionalValue(health[i])}});
+    }
+    return QVariantMap{{"controlPoints", optionalValue(blue ? snapshot.blueControlPoints : snapshot.redControlPoints)},
+                       {"damage", optionalValue(blue ? snapshot.blueDamage : snapshot.redDamage)},
+                       {"health", complete ? QVariant::fromValue(sum) : QVariant()},
+                       {"robots", robots}};
+  };
+  return {{"red", team(false)}, {"blue", team(true)}};
+}
+
 void GameData::updateRadarMarkData(const robomaster::RadarMarkData &data) {
     // 缓存旧状态用于比较
     bool wasActivatable = m_runeData.isActivatable;

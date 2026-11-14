@@ -4,7 +4,30 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickItem>
+#include <QQuickImageProvider>
 #include <QtTest>
+#include "core/GameData.h"
+#include "core/TacticalAnalyzer.h"
+#include "robomaster.pb.h"
+
+namespace {
+QQuickItem *visualItem(QQuickItem *root, const QString &name) {
+  if (root->objectName() == name) return root;
+  for (auto *child : root->childItems())
+    if (auto *found = visualItem(child, name)) return found;
+  return nullptr;
+}
+class FrameProvider : public QQuickImageProvider {
+public:
+  FrameProvider() : QQuickImageProvider(QQuickImageProvider::Image) {}
+  QImage requestImage(const QString &, QSize *size, const QSize &) override {
+    QImage frame(16, 16, QImage::Format_RGB32);
+    frame.fill(Qt::green);
+    if (size) *size = frame.size();
+    return frame;
+  }
+};
+}
 
 class TacticalMainWindowStub : public QObject {
   Q_OBJECT
@@ -86,6 +109,125 @@ private slots:
   void cleanupTestCase() {
     Q_CLEANUP_RESOURCE(resources);
     Q_CLEANUP_RESOURCE(qml);
+  }
+
+  void rmulReceivedStateAndFixedRoster() {
+    GameData data;
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty("gameData", &data);
+    QQmlComponent component(&engine, QUrl("qrc:/qml/Tactical/TacticalCommandPage.qml"));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    QScopedPointer<QObject> page(component.create());
+    QVERIFY(page);
+    QVERIFY2(page->property("rmulData").isValid(), "Tactical screen still uses the legacy projection");
+    auto summary = [&data]() { return data.property("rmulTacticalData").toMap(); };
+    QVERIFY(!summary().value("red").toMap().value("controlPoints").isValid());
+    QVERIFY(!summary().value("red").toMap().value("health").isValid());
+
+    robomaster::GlobalUnitStatus msg;
+    for (int hp : {500, 123, 999, 300, 450, 350, 888, 250}) msg.add_robot_health(hp);
+    msg.set_total_cp_ally(600);
+    msg.set_total_cp_enemy(590);
+    msg.set_total_damage_ally(0);
+    msg.set_total_damage_enemy(1234);
+    data.updateGlobalUnitStatus(msg);
+    auto red = summary().value("red").toMap();
+    auto blue = summary().value("blue").toMap();
+    QCOMPARE(red.value("health").toUInt(), 923u);
+    QCOMPARE(blue.value("health").toUInt(), 1050u);
+    QCOMPARE(red.value("damage").toUInt(), 0u);
+    QCOMPARE(blue.value("damage").toUInt(), 1234u);
+    const auto roster = red.value("robots").toList();
+    QCOMPARE(roster.size(), 3);
+    for (int i = 0; i < 3; ++i) {
+      QCOMPARE(roster[i].toMap().value("slot").toInt(), QList<int>({1,3,7})[i]);
+      QVERIFY(roster[i].toMap().value("label").toString() != "英雄");
+    }
+    auto *header = page->findChild<QObject *>("rmulTacticalHeader");
+    QVERIFY(header);
+    QTRY_COMPARE(header->property("allyControlText").toString(), QString("600"));
+    msg.set_total_cp_ally(0);
+    msg.set_robot_health(1, 0);
+    data.updateGlobalUnitStatus(msg);
+    QTRY_COMPARE(header->property("allyControlText").toString(), QString("0"));
+    QCOMPARE(summary().value("red").toMap().value("health").toUInt(), 800u);
+    data.updateGlobalUnitStatus(robomaster::GlobalUnitStatus{});
+    QCOMPARE(header->property("allyControlText").toString(), QString("0"));
+    data.resetGlobalUnitStatus();
+    QTRY_COMPARE(header->property("allyControlText").toString(), QString("—"));
+    QVERIFY(!summary().value("red").toMap().value("health").isValid());
+  }
+
+  void rmulBluePerspectiveAndPartialHealth() {
+    GameData data;
+    data.setCurrentRobotId(103);
+    robomaster::GlobalUnitStatus msg;
+    msg.set_total_cp_ally(0xffffffffu);
+    msg.set_total_cp_enemy(0);
+    msg.set_total_damage_ally(0xffffffffu);
+    msg.add_robot_health(0);
+    data.updateGlobalUnitStatus(msg);
+    auto summary = data.property("rmulTacticalData").toMap();
+    QVERIFY2(!summary.isEmpty(), "No RMUL tactical projection");
+    auto blue = summary.value("blue").toMap();
+    QCOMPARE(blue.value("controlPoints").toULongLong(), 0xffffffffull);
+    QCOMPARE(blue.value("damage").toULongLong(), 0xffffffffull);
+    // An invalid partial HP array must never invent a complete team total.
+    QVERIFY(!blue.value("health").isValid());
+    data.setCurrentRobotId(1);
+    summary = data.property("rmulTacticalData").toMap();
+    QVERIFY(!summary.value("blue").toMap().value("controlPoints").isValid());
+  }
+
+  void rmulVisibleRosterClockAndLayoutSwitch() {
+    GameData data;
+    data.setCurrentRobotId(103);
+    RM::TacticalAnalyzer analyzer(&data);
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty("gameData", &data);
+    engine.rootContext()->setContextProperty("tacticalAnalyzer", &analyzer);
+    QQmlComponent component(&engine, QUrl("qrc:/qml/Tactical/TacticalCommandPage.qml"));
+    QScopedPointer<QObject> object(component.create());
+    QVERIFY2(object, qPrintable(component.errorString()));
+    auto *page = qobject_cast<QQuickItem *>(object.data());
+    QVERIFY(page);
+    page->setWidth(1280); page->setHeight(800);
+    robomaster::GlobalUnitStatus msg;
+    for (int hp : {0, 123, 999, 300, 450, 350, 888, 250}) msg.add_robot_health(hp);
+    msg.set_total_cp_ally(0xffffffffu); msg.set_total_cp_enemy(0);
+    data.updateGlobalUnitStatus(msg);
+    for (int id : {1, 3, 7, 101, 103, 107}) {
+      auto *card = visualItem(page, QString("tacticalRobot%1").arg(id));
+      QVERIFY(card);
+      auto bounds = card->mapRectToScene(card->boundingRect());
+      QVERIFY(bounds.left() >= 0 && bounds.right() <= 1280);
+      QVERIFY(bounds.top() >= 0 && bounds.bottom() <= 800);
+    }
+    for (int id : {2, 4, 6, 102, 104, 106})
+      QVERIFY(!visualItem(page, QString("tacticalRobot%1").arg(id)));
+    QTRY_COMPARE(visualItem(page, "tacticalHealth101")->property("text").toString(), QString("0"));
+    QCOMPARE(visualItem(page, "tacticalHealth3")->property("text").toString(), QString("350"));
+    QCOMPARE(visualItem(page, "tacticalAllyControlPoints")->property("text").toString(), QString("4294967295"));
+    auto *clock = visualItem(page, "tacticalMatchClock");
+    QVERIFY(clock);
+    QCOMPARE(clock->property("text").toString(), QString("--:--"));
+    robomaster::GameStatus status;
+    status.set_current_stage(4); status.set_current_round(1); status.set_stage_countdown_sec(300);
+    data.updateGameStatus(status);
+    QTRY_COMPARE(clock->property("text").toString(), QString("05:00"));
+    status.set_is_paused(true); status.set_stage_countdown_sec(0);
+    data.updateGameStatus(status);
+    QCOMPARE(clock->property("text").toString(), QString("00:00"));
+    auto *centerMap = visualItem(page, "tacticalCenterMap");
+    auto *auxMap = visualItem(page, "tacticalAuxMap");
+    auto *camera = visualItem(page, "tacticalCenterCamera");
+    QVERIFY(centerMap && auxMap && camera);
+    QVERIFY(centerMap->isVisible() && !auxMap->isVisible() && !camera->isVisible());
+    analyzer.setLayoutMode("video_primary");
+    QTRY_VERIFY(!centerMap->isVisible() && auxMap->isVisible() && camera->isVisible());
+    data.resetGlobalUnitStatus();
+    QTRY_COMPARE(visualItem(page, "tacticalHealth101")->property("text").toString(), QString("—"));
+    QCOMPARE(visualItem(page, "tacticalAllyControlPoints")->property("text").toString(), QString("—"));
   }
 
   void testLargeMapOverlayLifecycleAndGeometry_data() {
@@ -195,32 +337,15 @@ private slots:
     QCOMPARE(largeMap->height(), mappedBounds.height());
     const qreal expectedWidth =
         qMin(static_cast<qreal>(pageWidth),
-             static_cast<qreal>(pageHeight) * 840.0 / 474.0);
-    const qreal expectedHeight = expectedWidth * 474.0 / 840.0;
+             static_cast<qreal>(pageHeight) * 12.0 / 8.0);
+    const qreal expectedHeight = expectedWidth * 8.0 / 12.0;
     QVERIFY(qAbs(largeMap->width() - expectedWidth) <= 0.001);
     QVERIFY(qAbs(largeMap->height() - expectedHeight) <= 0.001);
     QVERIFY(qAbs(largeMap->property("visualScale").toReal() -
-                 largeMap->width() / 840.0) <= 0.001);
+                 largeMap->width() / 1120.0) <= 0.001);
 
-    QVariantMap robot;
-    robot.insert(QStringLiteral("x"), 0.25);
-    robot.insert(QStringLiteral("y"), 0.20);
-    QVariant hitAtRenderedPosition;
-    QVERIFY(QMetaObject::invokeMethod(
-        largeMap, "isRobotHit", Q_RETURN_ARG(QVariant, hitAtRenderedPosition),
-        Q_ARG(QVariant, QVariant(robot)), Q_ARG(QVariant, QVariant(0.25)),
-        Q_ARG(QVariant, QVariant(0.80))));
-    QVERIFY(hitAtRenderedPosition.toBool());
-    QVariant missAtUnflippedPosition;
-    QVERIFY(QMetaObject::invokeMethod(
-        largeMap, "isRobotHit", Q_RETURN_ARG(QVariant, missAtUnflippedPosition),
-        Q_ARG(QVariant, QVariant(robot)), Q_ARG(QVariant, QVariant(0.25)),
-        Q_ARG(QVariant, QVariant(0.20))));
-    QVERIFY(!missAtUnflippedPosition.toBool());
-
-    const QJSValue model = largeMap->property("model").value<QJSValue>();
-    QVERIFY(model.isObject());
-    QCOMPARE(model.property(QStringLiteral("radarAgeMs")).toInt(), 118);
+    QCOMPARE(largeMap->property("hasLivePositions").toBool(), false);
+    QCOMPARE(largeMap->property("fieldAspectRatio").toReal(), 1.5);
 
     QPointer<QObject> destroyedWithLoader = overlayObject;
     mainWindow.setTacticalLargeMapMode(false);
@@ -258,51 +383,24 @@ private slots:
 
     QCOMPARE(page->property("allyIsBlue").toBool(), true);
     QCOMPARE(page->property("tacticalMapViewMirrored").toBool(), true);
-    QCOMPARE(page->property("tacticalMapBackgroundSource").toString(),
-             QStringLiteral("qrc:/images/minimap_bg_blue_left.png"));
-
-    auto *centerMap = qobject_cast<QQuickItem *>(
-        page->findChild<QObject *>(QStringLiteral("tacticalCenterMap")));
+    QCOMPARE(page->property("tacticalMapBackgroundSource").toString(), QString());
+    auto *centerMap = page->findChild<QObject *>("tacticalCenterMap");
     QVERIFY(centerMap);
-    QCOMPARE(centerMap->property("backgroundSource").toString(),
-             QStringLiteral("qrc:/images/minimap_bg_blue_left.png"));
     QCOMPARE(centerMap->property("viewMirrored").toBool(), true);
-
+    QCOMPARE(centerMap->property("hasLivePositions").toBool(), false);
     mainWindow.setTacticalLargeMapMode(true);
     QTRY_VERIFY(page->property("largeMapOverlayReady").toBool());
-
-    auto *largeMap = qobject_cast<QQuickItem *>(
-        page->findChild<QObject *>(QStringLiteral("tacticalLargeMap")));
+    auto *largeMap = page->findChild<QObject *>("tacticalLargeMap");
     QVERIFY(largeMap);
-    QCOMPARE(largeMap->property("backgroundSource").toString(),
-             QStringLiteral("qrc:/images/minimap_bg_blue_left.png"));
     QCOMPARE(largeMap->property("viewMirrored").toBool(), true);
-
-    QVariantMap robot;
-    robot.insert(QStringLiteral("x"), 0.25);
-    robot.insert(QStringLiteral("y"), 0.20);
-    QVariant transformedRobot;
-    QVERIFY(QMetaObject::invokeMethod(
-        largeMap, "transformRobot", Q_RETURN_ARG(QVariant, transformedRobot),
-        Q_ARG(QVariant, QVariant(robot))));
-    QVariant hitAtRotatedPosition;
-    QVERIFY(QMetaObject::invokeMethod(
-        largeMap, "isRobotHit", Q_RETURN_ARG(QVariant, hitAtRotatedPosition),
-        Q_ARG(QVariant, transformedRobot), Q_ARG(QVariant, QVariant(0.75)),
-        Q_ARG(QVariant, QVariant(0.20))));
-    QVERIFY(hitAtRotatedPosition.toBool());
-
-    QVariant missAtRedPerspectivePosition;
-    QVERIFY(QMetaObject::invokeMethod(
-        largeMap, "isRobotHit",
-        Q_RETURN_ARG(QVariant, missAtRedPerspectivePosition),
-        Q_ARG(QVariant, transformedRobot), Q_ARG(QVariant, QVariant(0.25)),
-        Q_ARG(QVariant, QVariant(0.80))));
-    QVERIFY(!missAtRedPerspectivePosition.toBool());
+    QCOMPARE(largeMap->property("fieldAspectRatio").toReal(), 1.5);
+    gameData.setCurrentRobotId(1);
+    QTRY_COMPARE(largeMap->property("viewMirrored").toBool(), false);
   }
 
   void testCameraRefreshUsesHeroFrameRevisionDirectly() {
     QQmlEngine engine;
+    engine.addImageProvider("herovideo", new FrameProvider);
     TacticalMainWindowStub mainWindow;
     TacticalGameDataStub gameData;
     engine.rootContext()->setContextProperty(QStringLiteral("mainWindow"),

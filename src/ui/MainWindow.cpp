@@ -2074,63 +2074,13 @@ void MainWindow::updateTacticalTimedEventPopupState() {
     m_tacticalTimedEventManualOverrideUntilMs = 0;
   }
 
-  const bool tacticalReady = m_tacticalMode &&
-                             m_qmlTacticalPage &&
-                             m_qmlTacticalPage->isVisible() &&
-                             m_gameData->getCurrentStage() == GameStage::BATTLE;
-  if (!tacticalReady) {
-    for (int i = 0; i < m_tacticalTimedEventPopups.size(); ++i) {
-      m_tacticalTimedEventPopups[i]->hide();
-      m_tacticalTimedEventRuleKeys[i].clear();
-      m_tacticalTimedEventCountdowns[i] = -1;
-    }
-    return;
+  // RMUL 3V3 has no legacy aerial/rune/outpost timed schedule. Only the
+  // explicit developer preview above may show this old popup component.
+  for (int i = 0; i < m_tacticalTimedEventPopups.size(); ++i) {
+    m_tacticalTimedEventPopups[i]->hide();
+    m_tacticalTimedEventRuleKeys[i].clear();
+    m_tacticalTimedEventCountdowns[i] = -1;
   }
-
-  const int currentGameTime = m_gameData->getGameTime();
-  const int enemyOutpostHp = m_gameData->enemyOutpostHealth();
-  const QVector<RM::TimedEventHit> hits =
-      RM::tryMatchTimedEvents(currentGameTime, enemyOutpostHp);
-
-  const int popupCount = m_tacticalTimedEventPopups.size();
-  const int hitCount = qMin(hits.size(), popupCount);
-
-  for (int i = 0; i < popupCount; ++i) {
-    if (i < hitCount) {
-      const auto &hit = hits[i];
-      const bool enteringRule =
-          !m_tacticalTimedEventPopups[i]->isVisible() ||
-          m_tacticalTimedEventRuleKeys[i] != hit.key;
-      const bool needsUpdate =
-          enteringRule ||
-          m_tacticalTimedEventCountdowns[i] != hit.countdownSeconds;
-      if (needsUpdate) {
-        if (QObject *rootObject = tacticalTimedEventPopupRootObject(
-                m_tacticalTimedEventPopups[i])) {
-          rootObject->setProperty("eventTitle", QStringLiteral("战术事件预告"));
-          rootObject->setProperty("triggerTimeText", hit.triggerTimeText);
-          rootObject->setProperty("countdownSeconds", hit.countdownSeconds);
-          rootObject->setProperty("eventLabel", hit.label);
-          rootObject->setProperty("countdownPrefix", QStringLiteral("还有"));
-        }
-        m_tacticalTimedEventRuleKeys[i] = hit.key;
-        m_tacticalTimedEventCountdowns[i] = hit.countdownSeconds;
-        if (enteringRule) {
-          playSoundFromResourceFolder(hit.soundFileName);
-        }
-      }
-      if (!m_tacticalTimedEventPopups[i]->isVisible()) {
-        m_tacticalTimedEventPopups[i]->show();
-      }
-    } else {
-      m_tacticalTimedEventPopups[i]->hide();
-      m_tacticalTimedEventRuleKeys[i].clear();
-      m_tacticalTimedEventCountdowns[i] = -1;
-    }
-  }
-
-  updateTacticalTimedEventPopupGeometry();
-  ensureTacticalTimedEventPopupRaisedIfActive();
 }
 
 void MainWindow::updateRunePanelVisibility() {
@@ -2430,13 +2380,7 @@ void MainWindow::createCenterArea() {
     m_tacticalAnalyzer->setThreatRanker(ranker);
     m_tacticalAnalyzer->setExecutionFusion(fusion);
     m_tacticalAnalyzer->setUseMockData(qEnvironmentVariableIsSet("RM_TACTICAL_MOCK"));
-    connect(m_tacticalAnalyzer, &RM::TacticalAnalyzer::enemyPaidRespawnDetected,
-            this, [this](int robotId) {
-              const QString fileName = paidRespawnSoundFileName(robotId);
-              qInfo() << "[PaidRespawnVoice] enemy robot revived by buyback"
-                      << "robotId=" << robotId << "file=" << fileName;
-              playSoundFromResourceFolder(fileName);
-            });
+    // Do not infer RMUL paid respawns from HP transitions in the legacy analyzer.
     m_tacticalAnalyzer->start(100);
   }
 
@@ -4066,13 +4010,7 @@ void MainWindow::applyTacticalMode(bool enabled) {
     m_tacticalAnalyzer->setThreatRanker(ranker);
     m_tacticalAnalyzer->setExecutionFusion(fusion);
     m_tacticalAnalyzer->setUseMockData(qEnvironmentVariableIsSet("RM_TACTICAL_MOCK"));
-    connect(m_tacticalAnalyzer, &RM::TacticalAnalyzer::enemyPaidRespawnDetected,
-            this, [this](int robotId) {
-              const QString fileName = paidRespawnSoundFileName(robotId);
-              qInfo() << "[PaidRespawnVoice] enemy robot revived by buyback"
-                      << "robotId=" << robotId << "file=" << fileName;
-              playSoundFromResourceFolder(fileName);
-            });
+    // Do not infer RMUL paid respawns from HP transitions in the legacy analyzer.
   }
   if (m_tacticalAnalyzer && !m_tacticalAnalyzer->isRunning()) {
     m_tacticalAnalyzer->start(100);

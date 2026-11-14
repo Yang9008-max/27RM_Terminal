@@ -14,6 +14,8 @@
 
 ## 当前任务边界
 
+第六阶段 `rmul2027/06-tactical` 迁移独立战术页，基线标签 `rmul2027-pre-06-tactical-20261114`。`GameData::rmulTacticalData()` 复用带存在性的比赛快照，固定双方 1/3/7 三车；不回退到旧 TacticalMock、默认血量或六车分析结果。战术页显示控制度/总攻击伤害/三车剩余血量，保留 Ctrl+Y 相机布局与 M 展开；地图为按 2027 图 3-1/3-4 自绘的 12×8 结构示意，未接实时定位/占领。停止旧战术定时预告和回血猜金币复活播报接线。旧操作页小地图、长按 TAB、H 兑换与其他旧事件仍未迁移。验收和边界见 `docs/development/rmul2027-tactical.md`。
+
 第五阶段 `rmul2027/05-local-settings` 修复 P 面板音量与视频限帧，基线标签 `rmul2027-pre-05-local-settings-20261114`，完成标签 `rmul2027-step-05-done`。提示音量统一短语音/击杀/结算/试听，音乐默认 50%；禁用音频和缺少音乐均显式显示，支持本次运行选择本地音乐及独立试听。视频限帧在实际呈现路径执行，保留最新尾帧并防止其他重绘绕过。Release/CTest 33 项通过，真实窗口已检查拖动、两类试听、文件选择和 144 FPS 选项。详细边界见 `docs/development/rmul2027-local-settings.md`。正常桌面验收不要使用旧 `tmp/desktop-acceptance-20261113/launch-client.ps1`，它会设置 `RM_DISABLE_AUDIO=1`；交付应清除该变量并重启。音源缺口仍按可选音效包处理，未验收实际听感和真实硬件。
 
 第一阶段已实现并验收：2027控制度、1/3/4/7血量槽位和模拟器到终端状态链路。实现与验收记录见 `docs/development/rmul2027-data.md`；此阶段完成不代表其他2027消息、RMUL完整规则或界面已迁移。后续阶段仍须按上述Git流程先保存版本再改动。

@@ -40,6 +40,10 @@
         <file>CustomUI/SuperCapacitorBar.qml</file>
         <file>CustomUI/GimbalAngleIndicator.qml</file>
         <file>Tactical/TacticalCommandPage.qml</file>
+        <file>Tactical/RmulTacticalHeader.qml</file>
+        <file>Tactical/RmulRosterPanel.qml</file>
+        <file>Tactical/RmulComparisonPanel.qml</file>
+        <file>Tactical/RmulFieldOverview.qml</file>
         <file>Tactical/TacticalLargeMapOverlay.qml</file>
         <file>Tactical/TacticalMock.qml</file>
         <file>Tactical/TacticalHeader.qml</file>
