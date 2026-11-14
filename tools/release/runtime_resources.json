@@ -14,7 +14,6 @@
     "qrc_manifest": "resources.qrc",
     "optional": {
       "paths": [
-        "resources/sounds/20game_finish.mp3",
         "resources/sounds/2kill.wav",
         "resources/sounds/2自检.mp3",
         "resources/sounds/3-1比赛开始.mp3",

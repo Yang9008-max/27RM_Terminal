@@ -54,6 +54,17 @@ rm26_add_qt_test(TestRmul2027Settings test_rmul2027_settings)
 set_property(TEST TestRmul2027Settings APPEND PROPERTY ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # 血条组件测试
+add_executable(test_local_settings unit/test_local_settings.cpp)
+target_link_libraries(test_local_settings PRIVATE Qt6::Widgets Qt6::QuickWidgets Qt6::Multimedia Qt6::Test RoboMasterClientLib)
+rm26_add_qt_test(TestLocalSettings test_local_settings)
+set_property(TEST TestLocalSettings APPEND PROPERTY ENVIRONMENT
+    "QT_QPA_PLATFORM=offscreen" "QT_QUICK_BACKEND=software")
+
+add_executable(test_video_background_widget unit/test_video_background_widget.cpp)
+target_link_libraries(test_video_background_widget PRIVATE Qt6::Widgets Qt6::Test RoboMasterClientLib)
+rm26_add_qt_test(TestVideoBackgroundWidget test_video_background_widget)
+set_property(TEST TestVideoBackgroundWidget APPEND PROPERTY ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(test_health_bar unit/test_health_bar.cpp)
 target_link_libraries(test_health_bar PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib)
 rm26_add_qt_test(TestHealthBar test_health_bar)

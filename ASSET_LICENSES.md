@@ -7,7 +7,7 @@
 
 ## 公开素材范围
 
-[`tools/release/public_assets.json`](tools/release/public_assets.json) 登记的 10 组固定 Git 索引快照可随
+[`tools/release/public_assets.json`](tools/release/public_assets.json) 登记的 11 组固定 Git 索引快照可随
 本仓库公开发布和再分发，包括发布稿中的赛场截图、演示视频、参赛队名称和赛事画面。授权范围只
 覆盖台账中 `file_count` 与 `sha256` 对应的内容；新增、删除或替换素材后需重新复核并更新快照。
 
@@ -48,6 +48,11 @@
 `comment`、`location`、`device`、`creation_time` 等元数据，清理隐私后保留原始授权证据。
 
 ## 新增素材登记
+
+`resources/settings_audio/preview.wav` 是 2026-11-14 为设置页试听独立生成的中性提示音，
+由仓库脚本 `tools/audio/generate_settings_tone.py` 用 Python 标准库合成 660/880 Hz 正弦波，
+不含采样、人物、赛事录音或第三方素材。脚本和生成的音频采用本仓库 MIT License，
+可直接运行脚本重现；它仅用于“试听提示音”，不替代任何缺失的比赛语音或背景音乐。
 
 新增或替换素材时，请在 PR 中提供：
 

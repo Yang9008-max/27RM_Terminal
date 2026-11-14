@@ -16,12 +16,15 @@
 #include <algorithm>
 #include <QApplication>
 #include <QAudioOutput>
+#include <QAudioDevice>
+#include <QMediaDevices>
 #include <QColor>
 #include <QCoreApplication>
 #include <QCursor>
 #include <QDateTime>
 #include <QDebug>
 #include <QFileInfo>
+#include <QFileDialog>
 #include <QGraphicsDropShadowEffect>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -1205,11 +1208,15 @@ void MainWindow::setupConnections() {
     // 2. 系统音量调节 (主音量)
     connect(root, SIGNAL(volumeChanged(int)), this,
             SLOT(onSystemVolumeChanged(int)));
-    onSystemVolumeChanged(50);
+    onSystemVolumeChanged(m_promptVolume);
 
     // 3. 背景音乐调节 (BGM)
     connect(root, SIGNAL(bgmChanged(int)), this,
             SLOT(onMusicVolumeChanged(int)));
+    connect(root, SIGNAL(promptPreviewRequested()), this, SLOT(previewPromptSound()));
+    connect(root, SIGNAL(musicPreviewRequested()), this, SLOT(previewBackgroundMusic()));
+    connect(root, SIGNAL(musicFileRequested()), this, SLOT(chooseBackgroundMusic()));
+    onMusicVolumeChanged(m_musicVolume);
 
     // 1. 准星显示（绑定到 QML CentralAimingHUD）
     if (m_qmlCentralAimingHUD && m_qmlCentralAimingHUD->rootObject()) {
@@ -3149,9 +3156,7 @@ void MainWindow::onGameStateUpdated() {
   // 准备和自检阶段只在可选语音包存在时播放背景音。
   if (m_bgmPlayer) {
     if (stage == GameStage::PREPARATION || stage == GameStage::SELF_CHECK) {
-      const QString currentSource =
-          m_bgmPlayer->source().toString(QUrl::FullyDecoded);
-      if (!currentSource.contains("min3bgm.mp3")) {
+      if (m_bgmPlayer->source() != QUrl::fromLocalFile(backgroundMusicPath("resources/sounds/min3bgm.mp3"))) {
         playBackgroundMusic("resources/sounds/min3bgm.mp3");
       }
     }
@@ -3185,11 +3190,11 @@ void MainWindow::onGameStateUpdated() {
 
   // 音频暂停/恢复处理：直接根据 GameData::is_paused() 设置播放状态
   if (m_gameData && m_bgmPlayer) {
-    if (stage == GameStage::SETTLEMENT) {
+    if (stage == GameStage::SETTLEMENT || stage == GameStage::NOT_STARTED) {
       m_bgmPlayer->stop();
     } else if (m_gameData->is_paused()) {
       m_bgmPlayer->pause();
-    } else {
+    } else if (!m_bgmPlayer->source().isEmpty()) {
       m_bgmPlayer->play();
     }
   }
@@ -4460,6 +4465,7 @@ void MainWindow::updateCurrentRobotPanel() {
 
 //把真实状态返回settingpannel
 void MainWindow::syncSettingsPanelState() {
+  syncLocalSettingsState();
   if (!m_qmlSettingsPanel || !m_qmlSettingsPanel->rootObject()) {
     return;
   }
@@ -5579,16 +5585,20 @@ void MainWindow::setupAudio() {
   m_audioOutput = new QAudioOutput(this);
   m_bgmPlayer = new QMediaPlayer(this);
   m_bgmPlayer->setAudioOutput(m_audioOutput);
-  m_audioOutput->setVolume(0.8);
+  m_audioOutput->setObjectName(QStringLiteral("backgroundAudioOutput"));
+  m_audioOutput->setVolume(m_musicVolume / 100.0);
   qDebug() << "MainWindow: BGM player and audio output created; volume=" << m_audioOutput->volume();
 
   // 并列音效播放器（用于在不打断 BGM 的情况下播放短音效）
   m_secondaryOutput = new QAudioOutput(this);
   m_secondaryPlayer = new QMediaPlayer(this);
   m_secondaryPlayer->setAudioOutput(m_secondaryOutput);
-  m_secondaryOutput->setVolume(0.8);
+  m_secondaryOutput->setObjectName(QStringLiteral("promptAudioOutput"));
+  m_secondaryOutput->setVolume(m_promptVolume / 100.0);
   qDebug() << "MainWindow: Secondary player created; volume=" << m_secondaryOutput->volume();
 
+  // AVFoundation-only warmup; Windows must not mute the initial prompt output.
+#ifdef Q_OS_MACOS
   // 预热 secondaryPlayer 的音频管线（AVFoundation 首次播放有 1-3s 冷启动延迟）
   m_secondaryOutput->setVolume(0.0);
   const QString warmupPath = QCoreApplication::applicationDirPath()
@@ -5605,13 +5615,42 @@ void MainWindow::setupAudio() {
       m_secondaryPlayer->stop();
     }
     if (m_secondaryOutput) {
-      m_secondaryOutput->setVolume(0.8);
+      m_secondaryOutput->setVolume(m_promptVolume / 100.0);
     }
     if (!m_secondarySoundQueue.isEmpty()) {
       startNextQueuedSecondarySound();
     }
   });
   qDebug() << "MainWindow: secondaryPlayer warmup initiated";
+#endif
+
+  // Settings previews never consume the referee voice queue or replace match BGM.
+  m_settingsPreviewOutput = new QAudioOutput(this);
+  m_settingsPreviewOutput->setVolume(m_promptVolume / 100.0);
+  m_settingsPreviewPlayer = new QMediaPlayer(this);
+  m_settingsPreviewPlayer->setObjectName(QStringLiteral("settingsAudioPreview"));
+  m_settingsPreviewPlayer->setAudioOutput(m_settingsPreviewOutput);
+  m_settingsPreviewTimer = new QTimer(this);
+  m_settingsPreviewTimer->setSingleShot(true);
+  connect(m_settingsPreviewTimer, &QTimer::timeout, m_settingsPreviewPlayer, &QMediaPlayer::stop);
+  connect(m_settingsPreviewPlayer, &QMediaPlayer::playbackStateChanged, this,
+          [this](QMediaPlayer::PlaybackState state) {
+    if (state == QMediaPlayer::PlayingState) m_audioPreviewStatus = tr("正在试听");
+    else if (m_settingsPreviewPlayer->error() == QMediaPlayer::NoError) m_audioPreviewStatus.clear();
+    syncLocalSettingsState();
+  });
+  connect(m_settingsPreviewPlayer, &QMediaPlayer::errorOccurred, this,
+          [this](QMediaPlayer::Error, const QString &message) {
+    m_audioPreviewStatus = tr("试听失败：%1").arg(message);
+    syncLocalSettingsState();
+  });
+  auto *devices = new QMediaDevices(this);
+  connect(devices, &QMediaDevices::audioOutputsChanged, this, [this]() {
+    const auto device = QMediaDevices::defaultAudioOutput();
+    for (auto *output : {m_audioOutput, m_secondaryOutput, m_settingsPreviewOutput})
+      if (output) output->setDevice(device);
+    syncLocalSettingsState();
+  });
 
   connect(m_secondaryPlayer, &QMediaPlayer::mediaStatusChanged, this,
           [this](QMediaPlayer::MediaStatus status) {
@@ -5717,7 +5756,7 @@ void MainWindow::setupAudio() {
 
             // 其它资源：仅对常规循环 BGM 做自动循环，其它一次性语音（如结算）不循环
             const QString curLower = currentSource.toLower();
-            if (curLower.contains("gamebg.mp3") || curLower.contains("min3bgm.mp3") || curLower.contains("min3.mp3")) {
+            if ((!m_customBgmPath.isEmpty() && m_bgmPlayer->source() == QUrl::fromLocalFile(m_customBgmPath)) || curLower.contains("gamebg.mp3") || curLower.contains("min3bgm.mp3") || curLower.contains("min3.mp3")) {
               qDebug() << "MainWindow: auto-looping background source=" << currentSource;
               m_bgmPlayer->setPosition(0);
               m_bgmPlayer->play();
@@ -5728,13 +5767,7 @@ void MainWindow::setupAudio() {
 
 void MainWindow::playBackgroundMusic(const QString &filePath) {
   if (m_bgmPlayer) {
-    QString playPath = filePath;
-    QFileInfo fileInfo(filePath);
-
-    // 如果是相对路径，则相对于应用程序目录解析
-    if (fileInfo.isRelative()) {
-      playPath = QCoreApplication::applicationDirPath() + "/" + filePath;
-    }
+    const QString playPath = backgroundMusicPath(filePath);
 
     // 优先尝试加载解析后的路径，如果失败则尝试原始路径（可能是URL或qrc）
     qDebug() << "MainWindow: playBackgroundMusic requested filePath=" << filePath << " resolvedPlayPath=" << playPath;
@@ -5747,7 +5780,8 @@ void MainWindow::playBackgroundMusic(const QString &filePath) {
       return;
     }
     qDebug() << "MainWindow: setting BGM source to local file:" << playPath;
-    m_bgmPlayer->setSource(QUrl::fromLocalFile(playPath));
+    const QUrl source = QUrl::fromLocalFile(playPath);
+    if (m_bgmPlayer->source() != source) m_bgmPlayer->setSource(source);
     qDebug() << "MainWindow: invoking play() for background music";
     m_bgmPlayer->play();
   }
@@ -5963,19 +5997,104 @@ void MainWindow::playOutpostReviveReminder() {
   playSecondarySound(QStringLiteral("resources/sounds/outpost_revive.mp3"));
 }
 
-void MainWindow::onMusicVolumeChanged(int volume) {
-  if (m_audioOutput) {
-    m_audioOutput->setVolume(volume / 100.0);
+QString MainWindow::backgroundMusicPath(const QString &fallback) const {
+  if (!m_customBgmPath.isEmpty()) return m_customBgmPath;
+  QString path = fallback;
+  if (path.isEmpty()) {
+    const bool battle = m_gameData && m_gameData->getCurrentStage() == GameStage::BATTLE;
+    path = battle ? QStringLiteral("resources/sounds/gameBg.mp3")
+                  : QStringLiteral("resources/sounds/min3bgm.mp3");
   }
+  return QFileInfo(path).isRelative()
+      ? QCoreApplication::applicationDirPath() + "/" + path : path;
+}
+
+void MainWindow::syncLocalSettingsState() {
+  if (!m_qmlSettingsPanel || !m_qmlSettingsPanel->rootObject()) return;
+  QObject *root = m_qmlSettingsPanel->rootObject();
+  const bool enabled = m_audioOutput && !QMediaDevices::defaultAudioOutput().isNull();
+  root->setProperty("localSensitivity", m_controlSensitivity);
+  root->setProperty("promptVolume", m_promptVolume);
+  root->setProperty("musicVolume", m_musicVolume);
+  root->setProperty("audioAvailable", enabled);
+  root->setProperty("audioStatus", !m_audioOutput ? tr("本次启动已禁用音频")
+      : !enabled ? tr("未检测到音频输出设备") : QString());
+  const QString path = backgroundMusicPath(QString());
+  const bool hasMusic = QFileInfo(path).isFile();
+  root->setProperty("musicAvailable", hasMusic);
+  root->setProperty("musicSourceLabel", hasMusic ? QFileInfo(path).fileName() : tr("未提供背景音乐，请选择本地文件"));
+  root->setProperty("audioPreviewStatus", m_audioPreviewStatus);
+}
+
+bool MainWindow::setBackgroundMusicFile(const QString &path) {
+  if (!QFileInfo(path).isFile()) {
+    m_audioPreviewStatus = tr("音乐文件不存在");
+    syncLocalSettingsState();
+    return false;
+  }
+  if (m_bgmPlayer) m_bgmPlayer->stop();
+  m_customBgmPath = QFileInfo(path).absoluteFilePath();
+  m_audioPreviewStatus.clear();
+  // Selecting a source does not start sound. Preview is explicit, and match
+  // playback follows the existing stage and pause rules on the next status.
+  if (m_bgmPlayer) m_bgmPlayer->setSource(QUrl::fromLocalFile(m_customBgmPath));
+  syncLocalSettingsState();
+  return true;
+}
+
+void MainWindow::chooseBackgroundMusic() {
+  const QString path = QFileDialog::getOpenFileName(this, tr("选择背景音乐（本次运行）"),
+      QString(), tr("音频文件 (*.mp3 *.wav *.ogg *.flac *.m4a);;所有文件 (*)"));
+  if (!path.isEmpty()) setBackgroundMusicFile(path);
+}
+
+void MainWindow::startAudioPreview(const QUrl &source, bool music) {
+  if (!m_settingsPreviewPlayer || QMediaDevices::defaultAudioOutput().isNull()) return;
+  m_settingsPreviewPlayer->stop();
+  m_previewIsMusic = music;
+  m_settingsPreviewOutput->setVolume((music ? m_musicVolume : m_promptVolume) / 100.0);
+  m_audioPreviewStatus = tr("正在加载试听");
+  m_settingsPreviewPlayer->setSource(source);
+  m_settingsPreviewPlayer->play();
+  m_settingsPreviewTimer->start(music ? 8000 : 2000);
+  syncLocalSettingsState();
+}
+
+void MainWindow::previewPromptSound() {
+  startAudioPreview(QUrl(QStringLiteral("qrc:/settings-audio/preview.wav")), false);
+}
+
+void MainWindow::previewBackgroundMusic() {
+  const QString path = backgroundMusicPath(QString());
+  if (QFileInfo(path).isFile()) startAudioPreview(QUrl::fromLocalFile(path), true);
+  else {
+    m_audioPreviewStatus = tr("音乐文件不存在");
+    syncLocalSettingsState();
+  }
+}
+
+void MainWindow::onMusicVolumeChanged(int volume) {
+  m_musicVolume = qBound(0, volume, 100);
+  if (m_audioOutput) {
+    m_audioOutput->setVolume(m_musicVolume / 100.0);
+  }
+  if (m_settingsPreviewOutput && m_previewIsMusic)
+    m_settingsPreviewOutput->setVolume(m_musicVolume / 100.0);
+  syncLocalSettingsState();
 }
 
 void MainWindow::onSensitivityChanged(int value) {
   m_controlSensitivity = qBound(0, value, 100);
+  syncLocalSettingsState();
   qDebug() << "Control Sensitivity Set to:" << m_controlSensitivity;
 }
 
 void MainWindow::onSystemVolumeChanged(int volume) {
-  const qreal normalized = qBound(0, volume, 100) / 100.0;
+  m_promptVolume = qBound(0, volume, 100);
+  const qreal normalized = m_audioOutput ? m_promptVolume / 100.0 : 0.0;
+  if (m_secondaryOutput) m_secondaryOutput->setVolume(normalized);
+  if (m_settingsPreviewOutput && !m_previewIsMusic)
+    m_settingsPreviewOutput->setVolume(normalized);
 
   // 非背景音乐音效（击杀播报、结算音效等）
   if (m_battleMessage) {
@@ -5984,6 +6103,7 @@ void MainWindow::onSystemVolumeChanged(int volume) {
   if (m_gameResultWidget) {
     m_gameResultWidget->setSoundVolume(normalized);
   }
+  syncLocalSettingsState();
 }
 
 void MainWindow::onCrosshairVisibilityChanged(bool visible) {

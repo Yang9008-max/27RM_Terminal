@@ -194,6 +194,10 @@ private slots:
    * @param volume 音量值 (0-100)
    */
   void onMusicVolumeChanged(int volume);
+  void previewPromptSound();
+  void previewBackgroundMusic();
+  void chooseBackgroundMusic();
+  bool setBackgroundMusicFile(const QString &path);
 
   /**
    * @brief 控制灵敏度变更槽函数
@@ -267,6 +271,9 @@ private:
 
   // --- 音频管理方法 ---
   void setupAudio();                                 // 初始化音频系统
+  void syncLocalSettingsState();
+  QString backgroundMusicPath(const QString &fallback) const;
+  void startAudioPreview(const QUrl &source, bool music);
   void playBackgroundMusic(const QString &filePath); // 播放背景音乐
   void playSecondarySound(const QString &filePath,
                           int loops = -1); // 播放并列音效（不影响BGM）
@@ -536,6 +543,14 @@ private:
   QAudioOutput *m_audioOutput = nullptr;      // 音频输出控制器
   QMediaPlayer *m_secondaryPlayer = nullptr;   // 并列音效播放器
   QAudioOutput *m_secondaryOutput = nullptr;   // 并列音频输出
+  QMediaPlayer *m_settingsPreviewPlayer = nullptr;
+  QAudioOutput *m_settingsPreviewOutput = nullptr;
+  QTimer *m_settingsPreviewTimer = nullptr;
+  int m_promptVolume = 50;
+  int m_musicVolume = 50;
+  bool m_previewIsMusic = false;
+  QString m_customBgmPath;
+  QString m_audioPreviewStatus;
   struct SecondarySoundRequest {
     QString filePath;
     int loops = 1;

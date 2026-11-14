@@ -1,4 +1,7 @@
 <RCC>
+    <qresource prefix="/settings-audio">
+        <file alias="preview.wav">resources/settings_audio/preview.wav</file>
+    </qresource>
     <qresource prefix="/images">
         <file alias="rune_tab/rune_tab_red.png">resources/images/rune_tab/rune_tab_red.png</file>
         <file alias="rune_tab/key_able.png">resources/images/rune_tab/key_able.png</file>

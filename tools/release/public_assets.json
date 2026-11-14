@@ -93,6 +93,15 @@
         "file_count": 3,
         "sha256": "dbd56a32220d7e70e7fa422afe628acaf94dc5113626c90e9bff87ea255690c0"
       }
+    },
+    {
+      "path": "resources/settings_audio",
+      "status": "approved",
+      "evidence": "ASSET_LICENSES.md",
+      "snapshot": {
+        "file_count": 1,
+        "sha256": "3f9378b301e9cf73f83a1608aa7be0ca569aed2b47e85bae7015ef51dfa64bad"
+      }
     }
   ]
 }

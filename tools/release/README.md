@@ -113,7 +113,7 @@ python3 tools/release/check_runtime_resources.py
 目录结构。源码目录或当前工作目录中的相对路径兜底，只能帮助开发机构建运行，不能证明发行物
 包含这些资源。
 
-12 个历史比赛音效按 [ADR 0004](../../docs/decisions/0004-optional-audio-pack.md) 登记为可选资源包，
+当前 11 个历史比赛音效按 [ADR 0004](../../docs/decisions/0004-optional-audio-pack.md) 登记为可选资源包（原 12 个中的旧结算入口已移除），
 默认源码归档不携带。检查器会显示可选缺失数量，但不会把静默降级当作核心功能故障；登记与源码引用不一致、证据缺失，
 或者可选文件进入索引后缺少 QRC alias，仍会阻断发布。
 

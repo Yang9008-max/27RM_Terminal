@@ -8,6 +8,7 @@
 #include <QThread>
 #include <QUrl>
 #include <chrono>
+#include <cmath>
 #ifdef RM_HAS_WEBENGINE
 #include <QWebEngineView>
 #endif
@@ -69,6 +70,8 @@ VideoBackgroundWidget::VideoBackgroundWidget(QWidget *parent)
 #endif
 
   m_updateTimer = new QTimer(this);
+  m_presentClock.start();
+  m_updateTimer->setTimerType(Qt::PreciseTimer);
   m_updateTimer->setSingleShot(true);
   connect(m_updateTimer, &QTimer::timeout, this, [this]() { update(); });
 
@@ -108,6 +111,10 @@ void VideoBackgroundWidget::setInterference(bool enabled) {
 void VideoBackgroundWidget::setTargetFps(int fps) {
   // 限制范围，避免异常值导致间隔计算错误
   m_targetFps = qBound(1, fps, 240);
+  if (m_updateTimer) {
+    m_updateTimer->stop();
+    schedulePresent(0);
+  }
 }
 
 bool VideoBackgroundWidget::shouldRotateVideo180ForRobotId(int robotId) {
@@ -166,6 +173,7 @@ void VideoBackgroundWidget::playUrl(const QString &url) {
 }
 
 void VideoBackgroundWidget::stopVideo() {
+  m_updateTimer->stop();
   if (m_videoReceiver && m_videoThread && m_videoThread->isRunning()) {
     if (QThread::currentThread() == m_videoReceiver->thread()) {
       m_videoReceiver->stopListening();
@@ -179,6 +187,8 @@ void VideoBackgroundWidget::stopVideo() {
   {
     QMutexLocker locker(&m_imageMutex);
     m_currentFrame = QImage(); // 清空当前帧
+    m_pendingFrame = QImage();
+    m_lastPresentationTick = -1000;
     m_scaledFrame = QImage();
     m_scaledFrameTargetSize = QSize();
     m_framePending = false;
@@ -226,7 +236,8 @@ void VideoBackgroundWidget::onTimedImageReceived(
     m_pendingDecodeDoneMs = decodeDoneMs;
     if (m_framePending) {
       ++m_droppedFrameCount;
-      if (nowMs - m_lastRenderStallLogMs >= 1000) {
+      if (nowMs - m_lastRenderStallLogMs >= 1000 &&
+          m_lastRenderCompleteMs > 0 && nowMs - m_lastRenderCompleteMs >= 1000) {
         qWarning().noquote()
             << QStringLiteral(
                    "RM26_VIDEO_STALL %1 stage=render_backlog duration_ms=%2 "
@@ -241,8 +252,7 @@ void VideoBackgroundWidget::onTimedImageReceived(
         m_lastRenderStallLogMs = nowMs;
       }
     }
-    m_currentFrame = image;
-    m_scaledFrameTargetSize = QSize();
+    m_pendingFrame = image;
     m_framePending = true;
   }
   schedulePresent(nowMs);
@@ -278,10 +288,19 @@ void VideoBackgroundWidget::paintEvent(QPaintEvent *event) {
   qint64 decodeDoneMs = 0;
   {
     QMutexLocker locker(&m_imageMutex);
+    // Parent animations, resize/expose events and repaint() can enter this
+    // function before our timer. Retain the displayed image until it is due.
+    const bool presentDue = m_presentClock.elapsed() - m_lastPresentationTick >= 1000.0 / m_targetFps;
+    hadPendingFrame = m_isPlaying && m_framePending && !m_pendingFrame.isNull() && presentDue;
+    if (hadPendingFrame) {
+      m_currentFrame = m_pendingFrame;
+      m_pendingFrame = QImage();
+      m_scaledFrameTargetSize = QSize();
+      m_lastPresentationTick = m_presentClock.elapsed();
+    }
     refreshScaledFrameLocked();
     scaledFrame = m_scaledFrame;
     presentedFrame = m_currentFrame;
-    hadPendingFrame = m_framePending && !scaledFrame.isNull();
     if (hadPendingFrame) {
       frameId = m_pendingFrameId;
       receivedFrameMs = m_lastReceivedFrameMs;
@@ -294,6 +313,7 @@ void VideoBackgroundWidget::paintEvent(QPaintEvent *event) {
       m_framePending = false;
     }
   }
+  schedulePresent(0);
 
   // 1. 播放状态下绘制视频帧
   if (m_isPlaying && !scaledFrame.isNull()) {
@@ -420,9 +440,15 @@ void VideoBackgroundWidget::refreshScaledFrameLocked() {
 
 void VideoBackgroundWidget::schedulePresent(qint64 nowMs) {
   Q_UNUSED(nowMs);
-  // Qt 自动合并多余 update() 为一次 paintEvent，无需手动节流。
-  // 定时器延迟是 120Hz 下延迟增大的主要来源。
-  update();
+  if (!m_framePending || !m_isPlaying) return;
+  const double remaining = 1000.0 / m_targetFps -
+      (m_presentClock.elapsed() - m_lastPresentationTick);
+  if (remaining <= 0) {
+    m_updateTimer->stop();
+    update();
+  } else if (!m_updateTimer->isActive()) {
+    m_updateTimer->start(static_cast<int>(std::ceil(remaining)));
+  }
 }
 
 void VideoBackgroundWidget::generateNoise() {

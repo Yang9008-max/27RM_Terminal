@@ -160,7 +160,7 @@ void GameResultWidget::announceResult() {
   const QString key = QStringLiteral("%1/%2/%3").arg(m_snapshot.round).arg(m_snapshot.winner).arg(m_snapshot.endReason == 6);
   if (m_announcedKey == key) return;
   m_announcedKey = key;
-  if (m_playSound && !qEnvironmentVariableIsSet("RM_DISABLE_AUDIO") && m_sound->source().isValid()) m_sound->play();
+  if (m_playSound && qEnvironmentVariableIntValue("RM_DISABLE_AUDIO") == 0 && m_sound->source().isValid()) m_sound->play();
   emit resultAnnounced();
   startVictoryAnimation();
 }

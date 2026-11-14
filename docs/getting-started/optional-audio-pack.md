@@ -11,11 +11,16 @@
 | 比赛背景音乐 | `gameBg.mp3` |
 | 比赛开始倒计时 | `3-1比赛开始.mp3` |
 | 剩余时间提示 | `2自检.mp3` |
-| 正常或异常结算 | `20game_finish.mp3`、`game_finish.mp3` |
+| 结算 | `game_finish.mp3`（原 `20game_finish.mp3` 入口已在 RMUL 结算迁移中移除） |
 | 普通击杀、第一滴血 | `dead.wav`、`firstblood.wav` |
 | 二至五连杀 | `2kill.wav`、`3kill.wav`、`4kill.wav`、`5kill.wav` |
 
 ## 本地使用
+
+2027 RMUL 设置页也可通过“选择音乐”加载本地音频，并用“试听 8 秒”检查背景音量；
+选择只对本次运行生效。未提供音乐时界面会提示并禁用背景音量，而不是显示一个无效果的滑条。
+“试听提示音”是独立合成的设置测试音，不表示下表中的可选比赛语音已安装。
+详细验收见 [本地设置修复](../development/rmul2027-local-settings.md)。
 
 使用团队自制或已获授权的音频，并保持上述文件名。运行源码构建时，把文件放到
 `resources/sounds/`；也可以放到可执行文件旁的 `resources/sounds/`。击杀语音还会检查当前工作

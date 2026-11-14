@@ -37,6 +37,17 @@ Rectangle {
     // 对外信号 - 用于通知C++端设置变更
     // -------------------------------------------------------------------------
     property bool isVideoConnected: false // 图传连接状态
+    property int localSensitivity: 50
+    property int promptVolume: 50
+    property int musicVolume: 50
+    property bool audioAvailable: false
+    property bool musicAvailable: false
+    property string audioStatus: ""
+    property string musicSourceLabel: "未提供背景音乐，请选择本地文件"
+    property string audioPreviewStatus: ""
+    signal promptPreviewRequested()
+    signal musicPreviewRequested()
+    signal musicFileRequested()
     property int comboBoxHeight: root.height*0.07 // 统一下拉框高度，避免破坏现有布局结构
     property string selectedRobotType: ""
     property string activeRobotLabel: ""
@@ -642,7 +653,7 @@ Rectangle {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: root.height * 0.03
-                    spacing: root.height * 0.03
+                    spacing: root.height * 0.012
 
                     Text {
                         text: "硬件/图形设置"
@@ -651,123 +662,140 @@ Rectangle {
                         font.pixelSize: root.height * 0.04
                     }
 
-                    // 控制灵敏度
-                    RowLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        Text {
-                            text: "鼠标灵敏度"
-                            color: "white"
-                            Layout.preferredWidth: root.width * 0.08
-                        }
-
-                        Item{
+                        spacing: 2
+                        RowLayout {
                             Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: sensitivitySlider.value.toFixed(0)
-                            color: "#00BFFF"
-                            Layout.preferredWidth: root.width * 0.02
-                        }
-                    }
-
-                    Slider{
-                            id: sensitivitySlider
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 100
-                            value: 50
-                            onValueChanged: root.sensitivityChanged(value)
-                    }
-
-                    // 音量设置
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: "提示音量"
-                            color: "white"
-                            Layout.preferredWidth: root.width * 0.08
-                        }
-
-                        Image{
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: volumeSlider.value.toFixed(0)
-                            color: "#00BFFF"
-                            Layout.preferredWidth: root.width * 0.02
-                        }
-                    }
-
-                    Slider {
-                            id: volumeSlider
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 100
-                            value: 50
-                            onValueChanged: root.volumeChanged(value)
-                    }
-
-                    //背景音量设置
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: "背景音量设置"
-                            color: "white"
-                            Layout.preferredWidth: root.width * 0.08
-                        }
-
-                        Image{
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: bgvolumeSlider.value.toFixed(0)
-                            color: "#00BFFF"
-                            Layout.preferredWidth: root.width * 0.02
-                        }
-                    }
-
-                    Slider {
-                        id: bgvolumeSlider
-                        Layout.fillWidth: true
-                        from: 0
-                        to: 100
-                        value: 50
-                        onValueChanged: root.bgmChanged(value)
-                    }
-
-                    // 帧率设置
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: "刷新上限"
-                            color: "#AAAAAA"
-                            Layout.preferredWidth: root.width * 0.08
-                        }
-                        Image{
-                            Layout.fillWidth: true
-                        }
-                        ComboBox {
-                            id: fpsCombo
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.comboBoxHeight
-                            model: ["60 FPS", "120 FPS", "144 FPS"]
-                            onCurrentTextChanged: root.fpsChanged(currentText)
-                            background: Rectangle {
-                                color: "#222222"
-                                radius: root.height * 0.007
+                            Text { text: "鼠标灵敏度"; color: "white" }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: sensitivitySlider.value.toFixed(0) + " · " + (sensitivitySlider.value <= 50
+                                    ? 0.1 + sensitivitySlider.value / 50 * 0.9
+                                    : 1 + (sensitivitySlider.value - 50) / 50 * 2).toFixed(2) + "×"
+                                color: "#00BFFF"
                             }
-                            contentItem: RowLayout{
-                                Text {
-                                text: fpsCombo.displayText
-                                color: "white"
-                                verticalAlignment: Text.AlignVCenter
-                                leftPadding: root.width * 0.008
+                        }
+                        Slider {
+                            id: sensitivitySlider
+                            objectName: "localSensitivitySlider"
+                            Layout.fillWidth: true
+                            from: 0; to: 100; stepSize: 1
+                            value: root.localSensitivity
+                            onValueChanged: if (Math.round(value) !== root.localSensitivity)
+                                root.sensitivityChanged(Math.round(value))
+                        }
+                        Text {
+                            text: "仅操作视角生效；设置面板内不改变指针速度"
+                            color: "#9BAFC3"; font.pixelSize: root.height * 0.024
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: "提示音量"; color: "white" }
+                            Item { Layout.fillWidth: true }
+                            Text { text: volumeSlider.value.toFixed(0) + "%"; color: "#00BFFF" }
+                        }
+                        Slider {
+                            id: volumeSlider
+                            objectName: "promptVolumeSlider"
+                            Layout.fillWidth: true
+                            enabled: root.audioAvailable
+                            from: 0; to: 100; stepSize: 1
+                            value: root.promptVolume
+                            onValueChanged: if (Math.round(value) !== root.promptVolume)
+                                root.volumeChanged(Math.round(value))
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Button {
+                                objectName: "promptPreviewButton"
+                                text: "试听提示音"
+                                enabled: root.audioAvailable
+                                Layout.preferredHeight: root.comboBoxHeight
+                                onClicked: root.promptPreviewRequested()
+                            }
+                            Text {
+                                text: root.audioStatus || root.audioPreviewStatus
+                                color: root.audioStatus ? "#F4B96B" : "#9BAFC3"
+                                font.pixelSize: root.height * 0.024
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: "背景音乐音量"; color: "white" }
+                            Item { Layout.fillWidth: true }
+                            Text { text: bgvolumeSlider.value.toFixed(0) + "%"; color: "#00BFFF" }
+                        }
+                        Slider {
+                            id: bgvolumeSlider
+                            objectName: "musicVolumeSlider"
+                            Layout.fillWidth: true
+                            enabled: root.audioAvailable && root.musicAvailable
+                            from: 0; to: 100; stepSize: 1
+                            value: root.musicVolume
+                            onValueChanged: if (Math.round(value) !== root.musicVolume)
+                                root.bgmChanged(Math.round(value))
+                        }
+                        Text {
+                            text: root.musicSourceLabel
+                            color: root.musicAvailable ? "#9BAFC3" : "#F4B96B"
+                            font.pixelSize: root.height * 0.024
+                            Layout.fillWidth: true; elide: Text.ElideMiddle
+                        }
+                        RowLayout {
+                            Button {
+                                objectName: "chooseMusicButton"
+                                text: "选择音乐"
+                                enabled: root.audioAvailable
+                                Layout.preferredHeight: root.comboBoxHeight
+                                onClicked: root.musicFileRequested()
+                            }
+                            Button {
+                                objectName: "musicPreviewButton"
+                                text: "试听 8 秒"
+                                enabled: root.audioAvailable && root.musicAvailable
+                                Layout.preferredHeight: root.comboBoxHeight
+                                onClicked: root.musicPreviewRequested()
+                            }
+                            Text { text: "本次运行"; color: "#9BAFC3"; font.pixelSize: root.height * 0.024 }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: "视频刷新上限"; color: "white" }
+                            Item { Layout.fillWidth: true }
+                            ComboBox {
+                                id: fpsCombo
+                                objectName: "videoFpsCombo"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: root.comboBoxHeight
+                                model: ["60 FPS", "120 FPS", "144 FPS"]
+                                onActivated: root.fpsChanged(currentText)
+                                background: Rectangle { color: "#222222"; radius: root.height * 0.007 }
+                                contentItem: Text {
+                                    text: fpsCombo.displayText; color: "white"
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: root.width * 0.008
                                 }
-
-                             }
+                            }
+                        }
+                        Text {
+                            text: "仅限制视频显示，不提高图传源帧率"
+                            color: "#9BAFC3"; font.pixelSize: root.height * 0.024
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
                         }
                     }
 

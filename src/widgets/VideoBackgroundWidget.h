@@ -2,6 +2,7 @@
 #define VIDEOBACKGROUNDWIDGET_H
 
 #include <QImage>
+#include <QElapsedTimer>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QPainter>
@@ -132,6 +133,9 @@ private:
   void schedulePresent(qint64 nowMs);
 
   QTimer *m_updateTimer;
+  QElapsedTimer m_presentClock;
+  qint64 m_lastPresentationTick = -1000;
+  QImage m_pendingFrame;
   QImage m_noiseImage;
   QImage m_currentFrame; // 当前视频帧
   QImage m_scaledFrame;  // 当前用于绘制的缩放后帧
