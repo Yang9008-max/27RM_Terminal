@@ -237,7 +237,7 @@ Item {
     }
 
     // 模块状态
-    property var moduleStates: gameDataContext ? gameDataContext.moduleStates : [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    property var moduleStates: gameDataContext ? gameDataContext.moduleStates : [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
     property string teamPrefix: isRed ? "red" : "blue"
     property int safeRobotLevel: Math.max(1, Math.min(maxlevel, Math.round(Number(robotLevel) || 1)))
@@ -720,9 +720,19 @@ Item {
                             height: root.height * 0.09
                             anchors.left: parent.left
                             //记录颜色
-                            property string moduleState: (root.moduleStates && root.moduleStates[moduleStatusItem.index] === 0) ? "green" : "red"
-                            source: "qrc:/images/my_robot/statusbar_signallamp_" + moduleStateImage.moduleState + "_single.png"
+                            property int stateValue: root.moduleStates ? root.moduleStates[moduleStatusItem.index] : 2
+                            property string moduleState: stateValue === 0 ? "green" : "red"
+                            source: stateValue === 2 ? "" : "qrc:/images/my_robot/statusbar_signallamp_" + moduleStateImage.moduleState + "_single.png"
                             fillMode: Image.Stretch
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                height: width
+                                radius: width / 2
+                                color: "#666666"
+                                visible: moduleStateImage.stateValue === 2
+                                Text { anchors.centerIn: parent; text: "?"; color: "white"; font.pixelSize: parent.width * 0.8 }
+                            }
                         }
                         Text {
                             anchors.left: parent.left

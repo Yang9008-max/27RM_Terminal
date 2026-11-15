@@ -31,8 +31,10 @@
 // --- 头文件包含 ---
 #include "../core/GameData.h" // 比赛数据中心，用于存储解析后的比赛状态
 #include "Protocol.h"         // 协议处理类，提供 Protobuf 序列化/反序列化
+#include "ControlSendPolicy.h"
 #include <QHostAddress>       // Qt 网络地址类
 #include <QObject>            // Qt 基础对象类
+#include <QPointer>
 #include <QUdpSocket>         // Qt UDP 套接字类
 
 #ifdef RM_HAS_MQTT
@@ -213,7 +215,7 @@ public:
   /**
    * @brief 发送地图标记
    * @details 旧版 UDP 接口，仅用于历史兼容。
-   *          官方 MQTT 模式下应使用 `MapClickInfoNotify`。
+   *          2027 MQTT 模式下应使用 MapClickCmd，坐标必须先校准。
    *
    * @param x    标记点 X 坐标 (地图坐标系)
    * @param y    标记点 Y 坐标 (地图坐标系)
@@ -263,7 +265,7 @@ public:
   /**
    * @brief 发送官方键鼠控制指令 KeyboardMouseControl（供 UI / dev hook 调用）
    * @details 官方 V1.3.0 上行 topic 为 "KeyboardMouseControl"，频率上限 75Hz。
-   * @return true = 已排入 MQTT 发布，false = 被限频 / 未连接 / 序列化失败
+   * @return true = 已接受（可能等待发送预算），false = 未连接 / 参数错误 / 发布失败
    */
   Q_INVOKABLE bool sendKeyboardMouseControl(
       int mouseX, int mouseY, int mouseZ, bool leftButtonDown,
@@ -344,6 +346,8 @@ signals:
    * @param data 需要交给视频解码链的原始负载
    */
   void customVideoPayloadReceived(const QByteArray &data);
+  void customDataPayloadReceived(const QByteArray &data);
+  void mapClickInfoReceived(const QByteArray &payload);
 
 #ifdef RM_HAS_MQTT
   /**
@@ -377,7 +381,7 @@ private:
   // --- 私有成员 ---
 
   QUdpSocket *m_udpSocket; ///< UDP 套接字实例
-  GameData *m_gameData;    ///< 比赛数据中心指针（不拥有所有权）
+  QPointer<GameData> m_gameData; ///< 比赛数据中心（不拥有所有权）
 
   /**
    * @brief 处理接收到的数据
@@ -414,6 +418,8 @@ private:
 
   // --- MQTT 成员变量 ---
   MqttManager *m_mqttManager = nullptr; ///< MQTT 客户端管理器
+  ControlSendPolicy *m_keyboardSendPolicy = nullptr;
+  ControlSendPolicy *m_customSendPolicy = nullptr;
   bool m_hasMqttGameStatus = false; ///< 是否已有 MQTT 比赛全局状态
   robomaster::GameStage m_lastMqttStage =
       robomaster::STAGE_NOT_STARTED; ///< 最近一次 MQTT 比赛阶段
@@ -424,10 +430,9 @@ private:
   qint64 m_lastCommonCommandSentMs = 0;  ///< CommonCommand 最近发送时间戳（ms）
   qint64 m_lastAssemblyCommandSentMs = 0; ///< AssemblyCommand 最近发送时间戳（ms）
   qint64 m_lastAirSupportCommandSentMs = 0; ///< AirSupportCommand 最近发送时间戳（ms）
-  qint64 m_lastMapClickInfoSentMs = 0; ///< MapClickInfoNotify 最近发送时间戳（ms）
+  qint64 m_lastMapClickInfoSentMs = 0; ///< MapClickCmd 最近发送时间戳（ms）
   qint64 m_lastKeyboardMouseControlAttemptMs = 0; ///< KeyboardMouseControl 最近尝试发送时间戳（ms）
   qint64 m_lastKeyboardMouseControlSentMs = 0; ///< KeyboardMouseControl 最近成功发布排队时间戳（ms）
-  qint64 m_lastKeyboardMouseControlDropLogMs = 0; ///< KeyboardMouseControl 最近丢弃日志时间戳（ms）
   quint64 m_totalKeyboardMouseControlSent = 0; ///< KeyboardMouseControl 成功排队数量
   quint64 m_totalKeyboardMouseControlDropped = 0; ///< KeyboardMouseControl 丢弃数量
   bool m_lastKeyboardMouseControlPublishOk = false; ///< 最近一次 KeyboardMouseControl 发布结果

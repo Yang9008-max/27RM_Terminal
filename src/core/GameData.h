@@ -725,6 +725,10 @@ public:
       return;
     const bool teamChanged = (m_currentRobotId >= 100) != (robotId >= 100);
     m_currentRobotId = robotId;
+    m_robotModuleStatusMap.clear();
+    m_moduleStatus.clear();
+    m_lastModuleOnlineStates.clear();
+    emit moduleListChanged();
     resetGlobalUnitStatus();
     resetMatchStatus();
     emit myRobotUpdated();
@@ -1422,6 +1426,7 @@ private:
   SentryPathData m_allySentryPath;      //己方哨兵路径规划
   QList<ModuleStatusData> m_moduleStatus;//用于顺序存储~按键所需的模块
   QVariantMap m_robotModuleStatusMap; // 核心模块状态映射 (字段名 -> 0/1)（统一管理）
+  QHash<int, robomaster::RobotStaticStatus> m_robotStaticSnapshots;
   QMap<QString, bool> m_lastModuleOnlineStates; // 模块上次在线态，用于离线消息去重
 
   // 伤害统计数据

@@ -114,7 +114,7 @@ void TestMqttParsing::testMqttParsing() {
     msg.set_current_health(250);
     msg.set_current_heat(10.5f);
     msg.set_last_projectile_fire_rate(5.0f);
-    msg.set_current_chassis_energy(80);
+    msg.set_reserved(80);
     msg.set_current_buffer_energy(40);
     msg.set_current_experience(200);
     msg.set_experience_for_upgrade(500);
@@ -401,15 +401,15 @@ void TestMqttParsing::testMqttParsing() {
     QVERIFY(true);
   }
 
-  // MapClickInfoNotify
+  // MapClickCmd
   {
-    robomaster::MapClickInfoNotify msg;
+    robomaster::MapClickCmd msg;
     msg.set_is_send_all(1);
     QByteArray ids(7, 0);
     ids[0] = 1;
     msg.set_robot_id(ids.constData(), ids.size());
     msg.set_mode(1);
-    sendAndPrint(QStringLiteral("MapClickInfoNotify"), msg);
+    sendAndPrint(QStringLiteral("MapClickCmd"), msg);
     QVERIFY(true);
   }
 

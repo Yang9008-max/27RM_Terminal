@@ -35,6 +35,11 @@ add_executable(test_rmul2027_data unit/test_rmul2027_data.cpp)
 target_link_libraries(test_rmul2027_data PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
 rm26_add_qt_test(TestRmul2027Data test_rmul2027_data)
 
+add_executable(test_rmul2027_transport unit/test_rmul2027_transport.cpp)
+target_link_libraries(test_rmul2027_transport PRIVATE Qt6::Core Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
+rm26_add_qt_test(TestRmul2027Transport test_rmul2027_transport)
+set_property(TEST TestRmul2027Transport APPEND PROPERTY ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(test_rmul2027_settlement unit/test_rmul2027_settlement.cpp)
 target_link_libraries(test_rmul2027_settlement PRIVATE Qt6::Core Qt6::Widgets Qt6::Test RoboMasterClientLib protobuf::libprotobuf)
 rm26_add_qt_test(TestRmul2027Settlement test_rmul2027_settlement)

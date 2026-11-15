@@ -149,7 +149,7 @@ class MQTTPublisher:
             for topic in (
                 "KeyboardMouseControl",
                 "CustomControl",
-                "MapClickInfoNotify",
+                "MapClickCmd",
                 "AssemblyCommand",
                 "RobotPerformanceSelectionCommand",
                 "CommonCommand",
@@ -177,7 +177,7 @@ class MQTTPublisher:
         if topic not in {
             "KeyboardMouseControl",
             "CustomControl",
-            "MapClickInfoNotify",
+            "MapClickCmd",
             "AssemblyCommand",
             "RobotPerformanceSelectionCommand",
             "CommonCommand",
@@ -221,17 +221,17 @@ class MQTTPublisher:
                 print(f"MQTTPublisher: CustomControl parse error - {e}")
             return
 
-        if topic == "MapClickInfoNotify":
+        if topic == "MapClickCmd":
             try:
-                map_click = pb.MapClickInfoNotify()
+                map_click = pb.MapClickCmd()
                 map_click.ParseFromString(payload)
                 print(
-                    "MQTTPublisher: MapClickInfoNotify "
+                    "MQTTPublisher: MapClickCmd "
                     f"mode={map_click.mode} type={map_click.type} enemy_id={map_click.enemy_id} "
                     f"map=({map_click.map_x:.2f},{map_click.map_y:.2f})"
                 )
             except Exception as e:
-                print(f"MQTTPublisher: MapClickInfoNotify parse error - {e}")
+                print(f"MQTTPublisher: MapClickCmd parse error - {e}")
             return
 
         if topic == "AssemblyCommand":
@@ -1258,9 +1258,7 @@ class MQTTPublisher:
         msg.last_projectile_fire_rate = max(
             0.0, float(dynamic_status.get("last_projectile_fire_rate", 0.0))
         )
-        msg.current_chassis_energy = max(
-            0, int(dynamic_status.get("current_chassis_energy", 0))
-        )
+        # 2027 dynamic field 4 is reserved; do not publish simulated energy.
         msg.current_buffer_energy = max(
             0, int(dynamic_status.get("current_buffer_energy", 0))
         )
@@ -1304,8 +1302,8 @@ class MQTTPublisher:
         )
         msg.capacitor = max(0, int(module_status.get("capacitor", 1)))
         msg.main_controller = max(0, int(module_status.get("main_controller", 1)))
-        msg.laser_detection_module = max(
-            0, int(module_status.get("laser_detection_module", 1))
+        msg.modular_42mm = max(
+            0, int(module_status.get("modular_42mm", 0))
         )
         self._publish("RobotModuleStatus", msg.SerializeToString())
 

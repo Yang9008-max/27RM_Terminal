@@ -1525,15 +1525,15 @@ QVariantList GameData::getModuleData() const {
 }
 
 /**
- * @brief 获取模块状态整数数组 (0=在线, 1=离线)
+ * @brief 获取模块状态整数数组 (0=在线, 1=离线, 2=未知)
  * @details 供 LeftBottomPanel 的模块状态指示灯使用。
  *          对应顺序: 机器人, 遥控器, 自定义, 图传, RFID, 模块, UWB, 底盘, 17mm, 42mm??
  */
 QVariantList GameData::moduleStates() const {
   QVariantList list;
-  // 预填充 10 个离线状态 (1 代表离线/异常，0 代表正常)
+  // 没有权威数据的灯位保持未知。
   for (int i = 0; i < 10; ++i)
-    list.append(1);
+    list.append(2);
 
   // 如果没有收到 RobotModuleStatus，直接返回全离线。
   if (m_robotModuleStatusMap.isEmpty())
@@ -1541,6 +1541,7 @@ QVariantList GameData::moduleStates() const {
 
   // RobotModuleStatus 协议字段语义是 1=在线、0=离线；LeftBottom 灯位沿用旧语义 0=在线、1=离线。
   auto legacyState = [this](const char *fieldName) -> int {
+    if (!m_robotModuleStatusMap.contains(QString::fromLatin1(fieldName))) return 2;
     return m_robotModuleStatusMap.value(QString::fromLatin1(fieldName), 0).toUInt() == 1 ? 0 : 1;
   };
 
@@ -1549,7 +1550,7 @@ QVariantList GameData::moduleStates() const {
   list[3]=legacyState("video_transmission");     // 图传
   list[4]=legacyState("rfid");                   // RFID识别
   // 模块：沿用 ~ 面板模块明细，只要有一项离线/缺字段就是异常。
-  int moduleStatus = 0;
+  int moduleStatus = m_moduleStatus.isEmpty() ? 2 : 0;
   for (const auto &module : m_moduleStatus) {
     if (!module.isOnline) {
       moduleStatus = 1;
@@ -1992,11 +1993,15 @@ void GameData::updateRobotPerformanceSelectionSync(const robomaster::RobotPerfor
   emit myRobotUpdated();
 }
 
-void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data) {
+void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &update) {
+  const int snapshotId = update.has_robot_id() ? update.robot_id() : m_currentRobotId;
+  auto &snapshot = m_robotStaticSnapshots[snapshotId];
+  snapshot.MergeFrom(update); // Only use merged field/alive state for status priority.
+  const auto &data = update; // Other fields may have newer sources, e.g. performance Sync.
   //MQTT协议绑定
   const RobotType parsedType =
-      robotTypeFromProtocolId(data.robot_id(), data.robot_type());
-  if (parsedType == RobotType::DART) {
+      robotTypeFromProtocolId(snapshotId, data.robot_type());
+  if (parsedType == RobotType::DART && data.has_connection_state()) {
     const bool newDartOnline = (data.connection_state() == 1);
     const bool changed = (!m_hasDartRobotConnectionState) ||
                          (m_dartRobotOnline != newDartOnline);
@@ -2012,7 +2017,7 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
   }
 
   // 1. 更新机器人静态数据
-  int robotId = data.robot_id();
+  int robotId = data.has_robot_id() ? data.robot_id() : m_currentRobotId;
   RobotData *robot = findRobotById(robotId);
   if (!robot) {
     qWarning() << "[RobotStaticStatus] Unknown robot id=" << robotId
@@ -2024,7 +2029,7 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
   }
 
   //当等级发生变化时，发出系统消息
-  if (robot->level != data.level() && data.level()!=0) {
+  if (data.has_level() && robot->level != data.level() && data.level()!=0) {
     addSystemMessage(
                   QStringLiteral("当前机器人已升到%1级")
                       .arg(data.level()),
@@ -2034,15 +2039,16 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
   if (robot) {
     robot->robotId = robotId;
     robot->team = (robotId >= 100) ? TeamColor::BLUE : TeamColor::RED;
-    robot->type = parsedType;
-    robot->level = static_cast<quint8>(data.level());
-    robot->maxHP = static_cast<quint16>(data.max_health());
+    if (data.has_robot_id() || data.has_robot_type())
+      robot->type = robotTypeFromProtocolId(robotId, data.robot_type());
+    if (data.has_level()) robot->level = static_cast<quint8>(data.level());
+    if (data.has_max_health()) robot->maxHP = static_cast<quint16>(data.max_health());
     robot->currentRoundMaxHP = qMax(robot->currentRoundMaxHP, robot->maxHP);
-    robot->heatLimit = static_cast<quint16>(data.max_heat());
-    robot->coolingValue = static_cast<quint16>(data.heat_cooldown_rate());
-    robot->maxPower = static_cast<quint16>(data.max_power());
-    robot->maxBufferEnergy = static_cast<quint16>(data.max_buffer_energy());
-    robot->maxChassisEnergy = static_cast<quint16>(data.max_chassis_energy());
+    if (data.has_max_heat()) robot->heatLimit = static_cast<quint16>(data.max_heat());
+    if (data.has_heat_cooldown_rate()) robot->coolingValue = static_cast<quint16>(data.heat_cooldown_rate());
+    if (data.has_max_power()) robot->maxPower = static_cast<quint16>(data.max_power());
+    if (data.has_max_buffer_energy()) robot->maxBufferEnergy = static_cast<quint16>(data.max_buffer_energy());
+    if (data.has_max_chassis_energy()) robot->maxChassisEnergy = static_cast<quint16>(data.max_chassis_energy());
     if (data.has_performance_system_shooter())
       robot->shooterPerformanceSelection = data.performance_system_shooter() <= 2
           ? static_cast<quint8>(data.performance_system_shooter()) : 0;
@@ -2052,10 +2058,13 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
     const bool previousEngineConnected =
         robot->isClientConnected || robot->isControllerConnected;
     const RobotStatus previousStatus = robot->status;
-    const bool engineConnected = (data.connection_state() != 0);
-    robot->tabStaticConnected = (data.connection_state() == 1);
-    robot->isClientConnected = engineConnected;
-    robot->isControllerConnected = engineConnected;
+    const bool engineConnected = data.has_connection_state()
+        ? (data.connection_state() != 0) : previousEngineConnected;
+    if (data.has_connection_state()) {
+      robot->tabStaticConnected = (data.connection_state() == 1);
+      robot->isClientConnected = engineConnected;
+      robot->isControllerConnected = engineConnected;
+    }
     robot->chassisEnabled = (robot->chassisPerformanceSelection != 0);
     robot->shooterLocked = (robot->shooterPerformanceSelection == 0);
 
@@ -2064,12 +2073,14 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &data
     // 只有 field_state==1（不在场地清单中）才是真正的离线。
     // currentHP==0 不作为 DESTROYED 条件：非当前机器人的 HP 来自 RobotDynamicStatus
     // 而它只更新 m_currentRobotId，队友机器人只靠 alive_state 判断存亡。
-    if (data.field_state() == 1) {
-      robot->status = RobotStatus::OFFLINE;
-    } else if (data.alive_state() == 2) {
-      robot->status = RobotStatus::DESTROYED;
-    } else {
-      robot->status = RobotStatus::NORMAL;
+    if (data.has_field_state() || data.has_alive_state()) {
+      if (snapshot.has_field_state() && snapshot.field_state() == 1) {
+        robot->status = RobotStatus::OFFLINE;
+      } else if (snapshot.has_alive_state() && snapshot.alive_state() == 2) {
+        robot->status = RobotStatus::DESTROYED;
+      } else if (snapshot.has_alive_state() && snapshot.alive_state() == 1) {
+        robot->status = RobotStatus::NORMAL;
+      }
     }
 
     if (previousEngineConnected != engineConnected ||
@@ -2104,47 +2115,48 @@ void GameData::updateRobotDynamicStatus(const robomaster::RobotDynamicStatus &da
   robot->shootSpeedLimit = robotShootSpeedLimit(robot->type);
   robot->tabShootSpeedLimit = robotTabShootSpeedLimit(robot->type);
   robot->isClientConnected = true;
-  robot->currentHP = static_cast<quint16>(data.current_health());
+  if (data.has_current_health()) robot->currentHP = static_cast<quint16>(data.current_health());
   robot->currentRoundMaxHP = qMax(robot->currentRoundMaxHP, robot->currentHP);
   {
     const QDateTime now = QDateTime::currentDateTime();
     const bool recentlyOverridden =
         m_lastLocalHeatSet.isValid() && (m_lastLocalHeatSet.msecsTo(now) < 1500);
-    if (!recentlyOverridden) {
+    if (data.has_current_heat() && !recentlyOverridden) {
       robot->currentHeat = static_cast<quint16>(data.current_heat());
       if (robot->currentHeat <= 0) {
         robot->isHeatOverLimit = false;
       }
     }
   }
-  robot->firerate = static_cast<quint16>(data.last_projectile_fire_rate());
-  robot->launchingFrequency =
-      static_cast<quint16>(data.last_projectile_fire_rate());
-  robot->currentChassisEnergy =
-      static_cast<quint16>(data.current_chassis_energy());
-  robot->power = robot->currentChassisEnergy;
-  robot->bufferEnergy = static_cast<quint16>(data.current_buffer_energy());
-  const quint64 currentExperience = data.current_experience();
-  const quint64 experienceForUpgrade = data.experience_for_upgrade();
+  if (data.has_last_projectile_fire_rate()) {
+    robot->firerate = static_cast<quint16>(data.last_projectile_fire_rate());
+    robot->launchingFrequency = robot->firerate;
+  }
+  // Field 4 is reserved in 2027. It must never drive energy/power UI.
+  if (data.has_current_buffer_energy()) robot->bufferEnergy = static_cast<quint16>(data.current_buffer_energy());
+  const quint64 currentExperience = data.has_current_experience()
+      ? data.current_experience() : robot->experience;
+  const quint64 experienceForUpgrade = data.has_experience_for_upgrade()
+      ? data.experience_for_upgrade() : qMax(0, int(robot->maxExperience) - int(robot->experience));
   robot->experience =
       static_cast<quint16>(qMin<quint64>(currentExperience, 65535ull));
   robot->maxExperience = static_cast<quint16>(
       qMin<quint64>(currentExperience + experienceForUpgrade, 65535ull));
-  if (robotId == 1 || robotId == 101) {
+  if (data.has_remaining_ammo() && (robotId == 1 || robotId == 101)) {
     robot->allowedAmmo42mm = static_cast<quint16>(data.remaining_ammo());
-  } else {
+  } else if (data.has_remaining_ammo()) {
     robot->allowedAmmo17mm = static_cast<quint16>(data.remaining_ammo());
   }
-  robot->isOutOfCombat = data.is_out_of_combat();
-  robot->canRemoteHeal = data.can_remote_heal();
-  robot->canRemoteAmmo = data.can_remote_ammo();
+  if (data.has_is_out_of_combat()) robot->isOutOfCombat = data.is_out_of_combat();
+  if (data.has_can_remote_heal()) robot->canRemoteHeal = data.can_remote_heal();
+  if (data.has_can_remote_ammo()) robot->canRemoteAmmo = data.can_remote_ammo();
   robot->lastUpdateTime = QDateTime::currentDateTime();
-  robot->outOfCombatCountdown = data.out_of_combat_countdown();
+  if (data.has_out_of_combat_countdown()) robot->outOfCombatCountdown = data.out_of_combat_countdown();
 
-  if (robot->currentHP == 0) {
+  if (data.has_current_health() && robot->currentHP == 0) {
     robot->status = RobotStatus::DESTROYED;
-  } else if (robot->status == RobotStatus::DESTROYED ||
-             robot->status == RobotStatus::OFFLINE) {
+  } else if (data.has_current_health() && (robot->status == RobotStatus::DESTROYED ||
+             robot->status == RobotStatus::OFFLINE)) {
     robot->status = RobotStatus::NORMAL;
   }
 
@@ -2152,12 +2164,12 @@ void GameData::updateRobotDynamicStatus(const robomaster::RobotDynamicStatus &da
   emit myRobotUpdated();
   emit robotDataUpdated(robotId);
 
-  if (!robot->isOutOfCombat) {
+  if (data.has_is_out_of_combat() && !robot->isOutOfCombat) {
     robot->lastDamageTime = QDateTime::currentDateTime();
   }
 
   checkHeatLimit(robot);
-  if(data.current_health() <= 0){
+  if(data.has_current_health() && data.current_health() == 0){
     //更新小地图上机器人显示状态
     emit robotPositionUpdated(robotId, 0, 0, 0, false);
   }
@@ -2817,6 +2829,11 @@ const OutpostData &GameData::getOutpostByTeam(TeamColor team) const {
 
 //比赛状态协议的统一落点（重置逻辑在此函数中）
 void GameData::resetMatchStatus() {
+  m_robotStaticSnapshots.clear();
+  m_robotModuleStatusMap.clear();
+  m_moduleStatus.clear();
+  m_lastModuleOnlineStates.clear();
+  emit moduleListChanged();
   for (auto &robot : m_robots) {
     robot.shooterPerformanceSelection = 0;
     robot.chassisPerformanceSelection = 0;
@@ -3235,10 +3252,10 @@ void GameData::updateGlobalLogisticsStatus(
   const quint32 previousTechLevel = logistics.techLevel;
   const quint32 previousEncryptionLevel = logistics.encryptionLevel;
 
-  logistics.remainingEconomy = data.remaining_economy();
-  logistics.totalEconomyObtained = data.total_economy_obtained();
-  logistics.techLevel = data.tech_level();
-  logistics.encryptionLevel = data.encryption_level();
+  if (data.has_remaining_economy()) logistics.remainingEconomy = data.remaining_economy();
+  if (data.has_total_economy_obtained()) logistics.totalEconomyObtained = data.total_economy_obtained();
+  if (data.has_tech_level()) logistics.techLevel = data.tech_level();
+  if (data.has_encryption_level()) logistics.encryptionLevel = data.encryption_level();
 
   const int remainingEconomy = static_cast<int>(logistics.remainingEconomy);
   const bool economyChanged = isBluePerspective
@@ -4166,16 +4183,17 @@ void GameData::updateRobotInjury(const robomaster::RobotInjuryStat &data) {
 // === 模块在线状态更新（RobotModuleStatus）MQTT协议处理 ===
 void GameData::updateRobotModuleStatus(const robomaster::RobotModuleStatus &data) {
   // 1. 更新结构化 Map，供 DamagePanel 和 LeftBottomPanel 精确引用
-  m_robotModuleStatusMap["power_manager"] = data.power_manager();
-  m_robotModuleStatusMap["rfid"] = data.rfid();
-  m_robotModuleStatusMap["light_strip"] = data.light_strip();
-  m_robotModuleStatusMap["small_shooter"] = data.small_shooter();
-  m_robotModuleStatusMap["big_shooter"] = data.big_shooter();
-  m_robotModuleStatusMap["uwb"] = data.uwb();
-  m_robotModuleStatusMap["armor"] = data.armor();
-  m_robotModuleStatusMap["video_transmission"] = data.video_transmission();
-  m_robotModuleStatusMap["capacitor"] = data.capacitor();
-  m_robotModuleStatusMap["main_controller"] = data.main_controller();
+  if (data.has_power_manager()) m_robotModuleStatusMap["power_manager"] = data.power_manager();
+  if (data.has_rfid()) m_robotModuleStatusMap["rfid"] = data.rfid();
+  if (data.has_light_strip()) m_robotModuleStatusMap["light_strip"] = data.light_strip();
+  if (data.has_small_shooter()) m_robotModuleStatusMap["small_shooter"] = data.small_shooter();
+  if (data.has_big_shooter()) m_robotModuleStatusMap["big_shooter"] = data.big_shooter();
+  if (data.has_uwb()) m_robotModuleStatusMap["uwb"] = data.uwb();
+  if (data.has_armor()) m_robotModuleStatusMap["armor"] = data.armor();
+  if (data.has_video_transmission()) m_robotModuleStatusMap["video_transmission"] = data.video_transmission();
+  if (data.has_capacitor()) m_robotModuleStatusMap["capacitor"] = data.capacitor();
+  if (data.has_main_controller()) m_robotModuleStatusMap["main_controller"] = data.main_controller();
+  if (data.has_modular_42mm()) m_robotModuleStatusMap["modular_42mm"] = data.modular_42mm();
 
   //获取当前机器人类型（是否是英雄）
   const RobotData *currentRobot = getCurrentRobot();
@@ -4183,11 +4201,12 @@ void GameData::updateRobotModuleStatus(const robomaster::RobotModuleStatus &data
 
   // 2. 同时维护旧的列表结构，兼容已有的 Repeater 显示
   m_moduleStatus.clear();
-  auto addModule = [&](const QString &name, uint32_t online,
-                       bool notifyOfflineTransition = true) {
+  auto addModule = [&](const QString &name, const QString &key) {
+    if (!m_robotModuleStatusMap.contains(key)) return; // 未上报不等于离线。
+    const uint32_t online = m_robotModuleStatusMap.value(key).toUInt();
     const bool isOnline = (online == 1);//模块是否在线
 
-    if (notifyOfflineTransition) {
+    {
       const auto previousState = m_lastModuleOnlineStates.constFind(name);//前一次状态
       const bool firstSeen = previousState == m_lastModuleOnlineStates.constEnd();//是否是第一次出现
       const bool becameOffline = !firstSeen && previousState.value() && !isOnline;
@@ -4207,30 +4226,28 @@ void GameData::updateRobotModuleStatus(const robomaster::RobotModuleStatus &data
   };
 
   // 装甲四块使用同一个在线值（来自 data.armor）
-  addModule("装甲0", data.armor());
-  addModule("装甲1", data.armor());
-  addModule("装甲2", data.armor());
-  addModule("装甲3", data.armor());
+  addModule("装甲0", "armor");
+  addModule("装甲1", "armor");
+  addModule("装甲2", "armor");
+  addModule("装甲3", "armor");
   // 17mm测速（来自 small_shooter）(用发射机构状态)
   //如果是英雄，则绑定42mm
   if (isHero) {
-    addModule("42mm测速", data.big_shooter());
+    addModule("42mm测速", "big_shooter");
   }
   else{
-    addModule("17mm测速", data.small_shooter());
+    addModule("17mm测速", "small_shooter");
   }
   // 图传（来自 video_transmission）
-  addModule("图传", data.video_transmission());
+  addModule("图传", "video_transmission");
   // RFID（来自 rfid）
-  addModule("RFID", data.rfid());
+  addModule("RFID", "rfid");
   // UWB（来自 uwb）
-  addModule("UWB", data.uwb());
-  // WIFI 暂无真实上报，这里仅用于 UI 占位，不参与离线系统消息。
-  addModule("WIFI", 0, false);
+  addModule("UWB", "uwb");
   // 灯条仅显示一个：灯条0（来自 light_strip）
-  addModule("灯条0", data.light_strip());
+  addModule("灯条0", "light_strip");
   // 电容（来自 capacitor）
-  addModule("电容", data.capacitor());
+  addModule("电容", "capacitor");
 
   emit moduleListChanged();
   emitDataChanged();

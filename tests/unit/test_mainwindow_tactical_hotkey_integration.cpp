@@ -32,6 +32,11 @@ private slots:
     qputenv("RM_DISABLE_AUDIO", "1");
     qunsetenv("RM_DEVTOOLS");
     qunsetenv("RM_S1_ENGINE_HOST");
+    // Keep UI event-loop tests away from a simulator running on localhost:3333.
+    qputenv("RM_MQTT_BROKER", "127.0.0.1");
+    qputenv("RM_MQTT_PORT", "65534");
+    qputenv("RM_CLIENT_PORT", "65533");
+    qputenv("RM_VIDEO_PORT", "65532");
     Q_INIT_RESOURCE(qml);
     Q_INIT_RESOURCE(resources);
   }

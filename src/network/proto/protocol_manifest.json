@@ -12,10 +12,10 @@
     "name": "RoboMaster 2027 机甲大师高校系列赛通信协议",
     "version": "1.0.0",
     "published_on": "2026-10-29",
-    "stage": 1,
-    "implemented_scope": "GlobalUnitStatus #11/#12 fixed slots and #15/#16 control points; scalar presence",
-    "scope_document": "docs/development/rmul2027-data.md",
-    "remaining_gaps": "Other messages and legacy outpost field names/semantics still require migration"
+    "stage": 7,
+    "implemented_scope": "Stages 1-6 RMUL data/HUD/settlement/settings/tactical; sparse static/dynamic/module/logistics state; explicit keyboard release; independent 75Hz control budgets and 60B CustomControl; raw CustomByteBlock with opt-in team formats; MapClickCmd/MapClickInfo routing",
+    "scope_document": "docs/development/rmul2027-transport.md",
+    "remaining_gaps": "Map coordinate calibration and mode/type document ambiguity; other message presence and legacy outpost semantics; real engine/hardware validation"
   },
   "verified_sections": [
     "2.2.3",

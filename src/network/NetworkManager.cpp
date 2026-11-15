@@ -32,6 +32,8 @@
 #include <cstring>
 #include <QDateTime>
 #include <algorithm>
+#include <climits>
+#include <cmath>
 
 namespace RM {
 
@@ -75,8 +77,6 @@ bool shouldThrottleCommand(qint64 &lastSentMs, qint64 minIntervalMs) {
 
 QString mqttTopicForMessage(const robomaster::RoboMasterMessage &message) {
   switch (message.payload_case()) {
-  case robomaster::RoboMasterMessage::kMapClick:
-    return QStringLiteral("MapClickInfoNotify");
   case robomaster::RoboMasterMessage::kCommonCommand:
     return QStringLiteral("CommonCommand");
   default:
@@ -221,6 +221,26 @@ NetworkManager::NetworkManager(GameData *gameData, QObject *parent)
   // 连接信号槽：当有数据可读时调用 onReadyRead
   connect(m_udpSocket, &QUdpSocket::readyRead, this,
           &NetworkManager::onReadyRead);
+#ifdef RM_HAS_MQTT
+  m_keyboardSendPolicy = new ControlSendPolicy([this](const QByteArray &payload) {
+    m_lastKeyboardMouseControlAttemptMs = QDateTime::currentMSecsSinceEpoch();
+    const bool ok = isMqttConnected() &&
+        m_mqttManager->publish(QStringLiteral("KeyboardMouseControl"), payload, 1, 0);
+    m_lastKeyboardMouseControlPublishOk = ok;
+    if (ok) {
+      ++m_totalKeyboardMouseControlSent;
+      m_lastKeyboardMouseControlSentMs = QDateTime::currentMSecsSinceEpoch();
+      emit dataSent(payload);
+    } else ++m_totalKeyboardMouseControlDropped;
+    return ok;
+  }, this);
+  m_customSendPolicy = new ControlSendPolicy([this](const QByteArray &payload) {
+    if (!isMqttConnected() ||
+        !m_mqttManager->publish(QStringLiteral("CustomControl"), payload, 1, 0)) return false;
+    emit dataSent(payload);
+    return true;
+  }, this);
+#endif
 }
 
 /**
@@ -228,7 +248,12 @@ NetworkManager::NetworkManager(GameData *gameData, QObject *parent)
  * @details 确保在对象销毁前调用 stopListening 关闭套接字。
  *          QUdpSocket 由于设置了父对象，会在父对象销毁时自动删除。
  */
-NetworkManager::~NetworkManager() { stopListening(); }
+NetworkManager::~NetworkManager() {
+#ifdef RM_HAS_MQTT
+  stopMqtt();
+#endif
+  stopListening();
+}
 
 // --- 连接控制函数 ---
 
@@ -321,30 +346,18 @@ quint16 NetworkManager::listeningPort() const {
 void NetworkManager::sendData(const QByteArray &data,
                               const QHostAddress &address, quint16 port) {
 #ifdef RM_HAS_MQTT
-  if (m_mqttManager && m_mqttManager->isConnected()) {
-    robomaster::CustomControl message;
-    message.set_data(data.constData(), static_cast<size_t>(data.size()));
-
-    const QByteArray payload = serializeMessage(message);
-    if (payload.isEmpty()) {
-      qWarning() << "NetworkManager: Failed to serialize CustomControl payload";
-      return;
-    }
-
-    m_mqttManager->publish(QStringLiteral("CustomControl"), payload, 1);
-    emit dataSent(payload);
+  if (data.size() > 60) {
+    emit errorOccurred(QStringLiteral("CustomControl exceeds 60 bytes"));
     return;
   }
-  Q_UNUSED(address);
-  Q_UNUSED(port);
-  qWarning() << "NetworkManager: MQTT mode enabled but broker not connected, dropping raw payload";
-  return;
+  Q_UNUSED(address); Q_UNUSED(port);
+  if (!isMqttConnected()) return;
+  robomaster::CustomControl message;
+  message.set_data(data.constData(), static_cast<size_t>(data.size()));
+  m_customSendPolicy->submit(serializeMessage(message));
+#else
+  if (m_udpSocket->writeDatagram(data, address, port) == data.size()) emit dataSent(data);
 #endif
-  // 调用 QUdpSocket 发送数据报
-  m_udpSocket->writeDatagram(data, address, port);
-
-  // 发送 dataSent 信号，用于调试追踪
-  emit dataSent(data);
 }
 
 /**
@@ -567,35 +580,21 @@ bool NetworkManager::sendKeyboardMouseControl(
     int mouseX, int mouseY, int mouseZ, bool leftButtonDown,
     bool rightButtonDown, bool midButtonDown, quint32 keyboardValue) {
 #ifdef RM_HAS_MQTT
-  constexpr qint64 kKeyboardMouseMinIntervalMs = 13; // 最高约 75 Hz。
-  const bool isNeutralFrame =
-      mouseX == 0 && mouseY == 0 && mouseZ == 0 && !leftButtonDown &&
-      !rightButtonDown && !midButtonDown && keyboardValue == 0;
-  const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
-  if (!isNeutralFrame && m_lastKeyboardMouseControlAttemptMs > 0 &&
-      (nowMs - m_lastKeyboardMouseControlAttemptMs) <
-          kKeyboardMouseMinIntervalMs) {
-    if (qEnvironmentVariableIsSet("RM_KEYBOARD_MOUSE_TRACE")) {
-      qInfo() << "[keyboard-mouse-trace] stage=network-throttled"
-              << "elapsedMs="
-              << (nowMs - m_lastKeyboardMouseControlAttemptMs)
-              << "minimumMs=" << kKeyboardMouseMinIntervalMs
-              << "mouseX=" << mouseX << "mouseY=" << mouseY
-              << "keyboardValue=" << Qt::hex << keyboardValue << Qt::dec;
-    }
-    return false;
-  }
-  m_lastKeyboardMouseControlAttemptMs = nowMs;
-
-  m_lastKeyboardMouseX = mouseX;
-  m_lastKeyboardMouseY = mouseY;
-  m_lastKeyboardMouseZ = mouseZ;
-  m_lastKeyboardMouseLeftButtonDown = leftButtonDown;
-  m_lastKeyboardMouseRightButtonDown = rightButtonDown;
-  m_lastKeyboardMouseMidButtonDown = midButtonDown;
-  m_lastKeyboardMouseKeyboardValue = keyboardValue;
-
+  if (!isMqttConnected() || (keyboardValue & ~quint32(0xffff)) != 0) return false;
+  const bool neutral = mouseX == 0 && mouseY == 0 && mouseZ == 0 &&
+      !leftButtonDown && !rightButtonDown && !midButtonDown && keyboardValue == 0;
   robomaster::KeyboardMouseControl message;
+  // Mouse movement is a delta; accumulate queued samples rather than replacing it.
+  robomaster::KeyboardMouseControl pending;
+  const QByteArray queued = m_keyboardSendPolicy->pendingPayload();
+  if (!neutral && !queued.isEmpty() && pending.ParseFromArray(queued.data(), queued.size())) {
+    const auto sum = [](int a, int b) {
+      return int(std::clamp<qint64>(qint64(a) + b, INT_MIN, INT_MAX));
+    };
+    mouseX = sum(mouseX, pending.mouse_x());
+    mouseY = sum(mouseY, pending.mouse_y());
+    mouseZ = sum(mouseZ, pending.mouse_z());
+  }
   message.set_mouse_x(mouseX);
   message.set_mouse_y(mouseY);
   message.set_mouse_z(mouseZ);
@@ -603,67 +602,18 @@ bool NetworkManager::sendKeyboardMouseControl(
   message.set_right_button_down(rightButtonDown);
   message.set_mid_button_down(midButtonDown);
   message.set_keyboard_value(keyboardValue);
-
-  std::string buffer;
-  if (!message.SerializeToString(&buffer)) {
-    ++m_totalKeyboardMouseControlDropped;
-    m_lastKeyboardMouseControlPublishOk = false;
-    qWarning() << "NetworkManager: Failed to serialize KeyboardMouseControl protobuf";
-    return false;
-  }
-  const QByteArray payload(buffer.data(), static_cast<int>(buffer.size()));
-
-  if (m_mqttManager && m_mqttManager->isConnected()) {
-    // KeyboardMouseControl 发送频率较高；在 UI 线程等待 QoS 完成会增加延迟并造成卡顿。
-    const bool published =
-        m_mqttManager->publish(QStringLiteral("KeyboardMouseControl"), payload,
-                               1, 0);
-    if (qEnvironmentVariableIsSet("RM_KEYBOARD_MOUSE_TRACE")) {
-      qInfo() << "[keyboard-mouse-trace] stage=mqtt-publish"
-              << "topic=KeyboardMouseControl"
-              << "connected=true"
-              << "published=" << published
-              << "payloadBytes=" << payload.size()
-              << "mouseX=" << mouseX << "mouseY=" << mouseY
-              << "mouseZ=" << mouseZ
-              << "left=" << leftButtonDown << "right=" << rightButtonDown
-              << "middle=" << midButtonDown
-              << "keyboardValue=" << Qt::hex << keyboardValue << Qt::dec;
-    }
-    m_lastKeyboardMouseControlPublishOk = published;
-    if (published) {
-      ++m_totalKeyboardMouseControlSent;
-      m_lastKeyboardMouseControlSentMs = nowMs;
-      emit dataSent(payload);
-      return true;
-    }
-  }
-
-  ++m_totalKeyboardMouseControlDropped;
-  m_lastKeyboardMouseControlPublishOk = false;
-  if (qEnvironmentVariableIsSet("RM_KEYBOARD_MOUSE_TRACE")) {
-    qInfo() << "[keyboard-mouse-trace] stage=mqtt-drop"
-            << "connected="
-            << (m_mqttManager && m_mqttManager->isConnected())
-            << "mouseX=" << mouseX << "mouseY=" << mouseY
-            << "mouseZ=" << mouseZ
-            << "keyboardValue=" << Qt::hex << keyboardValue << Qt::dec;
-  }
-  if (nowMs - m_lastKeyboardMouseControlDropLogMs > 1000) {
-    m_lastKeyboardMouseControlDropLogMs = nowMs;
-    qWarning() << "NetworkManager: MQTT not connected, dropping KeyboardMouseControl"
-               << "keyboardValue=" << keyboardValue;
-  }
-  return false;
+  m_lastKeyboardMouseX = mouseX;
+  m_lastKeyboardMouseY = mouseY;
+  m_lastKeyboardMouseZ = mouseZ;
+  m_lastKeyboardMouseLeftButtonDown = leftButtonDown;
+  m_lastKeyboardMouseRightButtonDown = rightButtonDown;
+  m_lastKeyboardMouseMidButtonDown = midButtonDown;
+  m_lastKeyboardMouseKeyboardValue = keyboardValue;
+  return m_keyboardSendPolicy->submit(serializeMessage(message));
 #else
-  Q_UNUSED(mouseX);
-  Q_UNUSED(mouseY);
-  Q_UNUSED(mouseZ);
-  Q_UNUSED(leftButtonDown);
-  Q_UNUSED(rightButtonDown);
-  Q_UNUSED(midButtonDown);
+  Q_UNUSED(mouseX); Q_UNUSED(mouseY); Q_UNUSED(mouseZ);
+  Q_UNUSED(leftButtonDown); Q_UNUSED(rightButtonDown); Q_UNUSED(midButtonDown);
   Q_UNUSED(keyboardValue);
-  qWarning() << "NetworkManager: MQTT not available in this build, dropping KeyboardMouseControl";
   return false;
 #endif
 }
@@ -673,12 +623,16 @@ void NetworkManager::sendMapClickInfo(quint32 targetRobotId, float x, float y,
                                       bool sendAll) {
 #ifdef RM_HAS_MQTT
   if (shouldThrottleCommand(m_lastMapClickInfoSentMs, 500)) {
-    qWarning() << "NetworkManager: MapClickInfoNotify throttled to <= 2Hz"
+    qWarning() << "NetworkManager: MapClickCmd throttled to <= 2Hz"
                << "targetRobotId=" << targetRobotId << "x=" << x << "y=" << y;
     return;
   }
 
-  robomaster::MapClickInfoNotify notify;
+  if (!std::isfinite(x) || !std::isfinite(y) || x < 0 || y < 0 ||
+      (!sendAll && targetRobotId != 0 &&
+       !((targetRobotId >= 1 && targetRobotId <= 7) ||
+         (targetRobotId >= 101 && targetRobotId <= 107)))) return;
+  robomaster::MapClickCmd notify;
   notify.set_is_send_all((sendAll || targetRobotId == 0) ? 1 : 0);
 
   // robot_id 是 7 字节目标 ID 列表，不是位图。红方写 1..7，蓝方写
@@ -688,26 +642,28 @@ void NetworkManager::sendMapClickInfo(quint32 targetRobotId, float x, float y,
     robotIds[0] = static_cast<char>(targetRobotId & 0xff);
   }
   notify.set_robot_id(robotIds.constData(), robotIds.size());
-  notify.set_mode(enemyId > 0 ? 2 : 1);
+  // PDF pp67-68 describes marker kind at #3 and map/enemy mode at #6.
+  // The proto names (mode/type) are misleading; follow the numbered table.
+  notify.set_mode(static_cast<uint32_t>(std::clamp(type, 1, 4)));
   notify.set_enemy_id(static_cast<uint32_t>(std::max(0, enemyId)));
   notify.set_ascii(static_cast<uint32_t>(std::max(0, ascii)));
-  notify.set_type(static_cast<uint32_t>(std::clamp(type, 1, 4)));
+  notify.set_type(enemyId > 0 ? 2 : 1);
   notify.set_map_x(x);
   notify.set_map_y(y);
 
   const QByteArray payload = serializeMessage(notify);
   if (payload.isEmpty()) {
-    qWarning() << "NetworkManager: Failed to serialize MapClickInfoNotify protobuf";
+    qWarning() << "NetworkManager: Failed to serialize MapClickCmd protobuf";
     return;
   }
 
   if (m_mqttManager && m_mqttManager->isConnected()) {
-    m_mqttManager->publish(QStringLiteral("MapClickInfoNotify"), payload, 1);
-    emit dataSent(payload);
+    if (m_mqttManager->publish(QStringLiteral("MapClickCmd"), payload, 1, 0))
+      emit dataSent(payload);
     return;
   }
 
-  qWarning() << "NetworkManager: MQTT not connected, dropping MapClickInfoNotify";
+  qWarning() << "NetworkManager: MQTT not connected, dropping MapClickCmd";
 #else
   Q_UNUSED(targetRobotId);
   Q_UNUSED(x);
@@ -716,7 +672,7 @@ void NetworkManager::sendMapClickInfo(quint32 targetRobotId, float x, float y,
   Q_UNUSED(ascii);
   Q_UNUSED(enemyId);
   Q_UNUSED(sendAll);
-  qWarning() << "NetworkManager: MQTT not available in this build, dropping MapClickInfoNotify";
+  qWarning() << "NetworkManager: MQTT not available in this build, dropping MapClickCmd";
 #endif
 }
 
@@ -1052,6 +1008,9 @@ void NetworkManager::processData(const QByteArray &data) {
 
 void NetworkManager::startMqtt(const QString &brokerUri,
                                const QString &clientId) {
+  if (isMqttConnected()) stopMqtt();
+  m_keyboardSendPolicy->cancel();
+  m_customSendPolicy->cancel();
   if (m_gameData) {
     m_gameData->resetGlobalUnitStatus();
     m_gameData->resetMatchStatus();
@@ -1068,6 +1027,8 @@ void NetworkManager::startMqtt(const QString &brokerUri,
     connect(
         m_mqttManager, &MqttManager::connectionStateChanged, this,
         [this](bool connected) {
+          m_keyboardSendPolicy->cancel();
+          m_customSendPolicy->cancel();
           if (connected) {
             qDebug()
                 << "NetworkManager: MQTT connected, subscribing to topics...";
@@ -1096,6 +1057,15 @@ void NetworkManager::startMqtt(const QString &brokerUri,
 }
 
 void NetworkManager::stopMqtt() {
+  if (isMqttConnected() &&
+      (m_lastKeyboardMouseKeyboardValue || m_lastKeyboardMouseLeftButtonDown ||
+       m_lastKeyboardMouseRightButtonDown || m_lastKeyboardMouseMidButtonDown ||
+       !m_keyboardSendPolicy->pendingPayload().isEmpty())) {
+    sendKeyboardMouseControl(0, 0, 0, false, false, false, 0);
+    m_keyboardSendPolicy->finish();
+  }
+  m_keyboardSendPolicy->cancel();
+  m_customSendPolicy->cancel();
   if (m_mqttManager) {
     m_mqttManager->disconnect();
   }
@@ -1128,14 +1098,11 @@ void NetworkManager::subscribeToTopics() {
       "CustomByteBlock",        // 机器人自定义上传数据流
       "TechCoreMotionStateSync", // 科技核心运动状态同步
       "RobotPerformanceSelectionSync", // 性能体系状态同步
-      "DeployModeStatusSync",   // 英雄部署模式状态同步
-      "Event",                  // 事件通知
-      "CustomRobotData",         // 自定义机器人数据
+      "MapClickInfo",           // 官方地图下行，仅观测
       "RuneStatusSync",         // 能量机关状态同步
       "SentryStatusSync",       // 哨兵姿态与弱化状态
       "DartSelectTargetStatusSync", // 飞镖目标选择状态同步
       "SentryCtrlResult",       // 哨兵控制结果
-      "AirSupportStatusSync",   // 空中支援状态
   };
 
   for (const QString &topic : topics) {
@@ -1289,9 +1256,9 @@ void NetworkManager::processMqttMessage(const QString &topic,
       gameInfo.set_blue_score(static_cast<uint32_t>(m_gameData->blueScore()));
       gameInfo.set_red_economy(static_cast<uint32_t>(m_gameData->redEconomy()));
       gameInfo.set_blue_economy(static_cast<uint32_t>(m_gameData->blueEconomy()));
-      if (isBluePerspective) {
+      if (msg.has_remaining_economy() && isBluePerspective) {
         gameInfo.set_blue_economy(msg.remaining_economy());
-      } else {
+      } else if (msg.has_remaining_economy()) {
         gameInfo.set_red_economy(msg.remaining_economy());
       }
       m_gameData->updateGameState(gameInfo);
@@ -1377,13 +1344,13 @@ void NetworkManager::processMqttMessage(const QString &topic,
                        msg.can_remote_ammo()}});
       qInfo().noquote()
           << QStringLiteral("[RobotDynamicStatus] hp=%1 heat=%2 fire_rate=%3 "
-                            "chassis_energy=%4 buf_energy=%5 "
+                            "reserved=%4 buf_energy=%5 "
                             "exp=%6 exp_up=%7 fired=%8 ammo=%9 "
                             "out_of_combat=%10 combat_countdown=%11 "
                             "remote_heal=%12 remote_ammo=%13")
                  .arg(msg.current_health()).arg(msg.current_heat())
                  .arg(msg.last_projectile_fire_rate())
-                 .arg(msg.current_chassis_energy())
+                 .arg(msg.reserved())
                  .arg(msg.current_buffer_energy())
                  .arg(msg.current_experience()).arg(msg.experience_for_upgrade())
                  .arg(msg.total_projectiles_fired()).arg(msg.remaining_ammo())
@@ -1545,63 +1512,27 @@ void NetworkManager::processMqttMessage(const QString &topic,
                             .toUtf8());
       m_gameData->updateTechCoreMotionStateSync(msg);
     }
+  } else if (topic == "MapClickInfo") {
+    robomaster::MapClickInfo msg;
+    if (msg.ParseFromArray(payload.data(), payload.size()) &&
+        (!msg.has_robot_id() || msg.robot_id().size() == 7) &&
+        (!msg.has_map_x() || std::isfinite(msg.map_x())) &&
+        (!msg.has_map_y() || std::isfinite(msg.map_y()))) {
+      // Downlink is observational only. Never feed it back into sendMapClickInfo.
+      emit mapClickInfoReceived(payload);
+    }
   } else if (topic == "CustomByteBlock") {
-    // 简化处理：不做视频/非视频检测，始终将 payload 作为视频片段转发给解码链。
-    // 如果 payload 为 Protobuf 封装（CustomByteBlock），则使用其中的 data 字段；否则直接使用原始 payload。
     robomaster::CustomByteBlock msg;
-    QByteArray data;
-
-    if (msg.ParseFromArray(payload.data(), payload.size())) {
-      data = QByteArray(msg.data().data(), static_cast<int>(msg.data().size()));
-      if (detailedVideoTrace) {
-        dumpMqttEvent(
-            QStringLiteral("parsed"), topic, payload, m_gameData,
-            QStringLiteral("CustomByteBlock wrapper_bytes=%1 data_bytes=%2")
-                .arg(payload.size())
-                .arg(data.size()),
-            QJsonObject{{QStringLiteral("wrapper_parsed"), true},
-                        {QStringLiteral("data_bytes"), data.size()},
-                        {QStringLiteral("data_prefix_hex"),
-                         QString::fromLatin1(data.left(24).toHex())}});
-        qDebug() << "[custombyte] NetworkManager: protobuf payload parsed, data size="
-                 << data.size();
-      }
-    } else {
-      dumpMqttEvent(
-          QStringLiteral("parse_failed"), topic, payload, m_gameData,
-          QStringLiteral("CustomByteBlock payload is not valid protobuf"));
-      qWarning() << "[custombyte] NetworkManager: payload is not valid protobuf";
-		  return;
-    }
-
-    // 发送端对 300B 视频片段额外包装 3 字节前缀 (0x0a 0xac 0x02)
-    // 若接收到的 data 为 303B 且以该前缀开头，剥离前三字节后再交给解码链
-    const QByteArray wrapperPrefix("\x0a\xac\x02", 3);
-    if (data.size() == 303 && data.startsWith(wrapperPrefix)) {
-      data = data.mid(3);
-    }
-
-    if (!data.isEmpty()) {
-      if (detailedVideoTrace) {
-        const QByteArray prefix = data.left(8).toHex();
-        qDebug() << "[custombyte] NetworkManager: forwarding payload bytes="
-                 << data.size() << "prefix(hex)=" << prefix;
-        emit dataReceived(
-            QStringLiteral("[custombyte] MQTT RX forwarded bytes=%1 prefix=%2")
-                .arg(data.size())
-                .arg(QString::fromLatin1(prefix))
-                .toUtf8());
-      }
+    if (!msg.ParseFromArray(payload.data(), payload.size()) || !msg.has_data() ||
+        msg.data().size() > 300) return;
+    const QByteArray data(msg.data().data(), int(msg.data().size()));
+    emit customDataPayloadReceived(data);
+    const QString format = qEnvironmentVariable("RM_CUSTOM_DATA_FORMAT", "raw");
+    if (format == QStringLiteral("h264")) {
       emit customVideoPayloadReceived(data);
-
-      // 同时尝试解析为 0x0301 机器人自定义状态数据 (28字节, 非H264视频)
-      // H264视频帧为300+字节，不会进入此分支
-      if (data.size() >= static_cast<int>(sizeof(RobotCustomStatus)) &&
-          data.size() <= 100) {
-        parseCustomByteBlock(data);
-      }
-    } else {
-      qWarning() << "[custombyte] NetworkManager: empty payload after unwrap";
+    } else if (format == QStringLiteral("robot-status-v1") &&
+               data.size() == int(sizeof(RobotCustomStatus))) {
+      parseCustomByteBlock(data);
     }
     return;
   } else if (topic == "RobotPathPlanInfo") {
@@ -1739,7 +1670,7 @@ void NetworkManager::processMqttMessage(const QString &topic,
 // ==================== 自定义 UI 数据解析 (CustomByteBlock) ====================
 
 void NetworkManager::parseCustomByteBlock(const QByteArray &data) {
-    if (data.size() < sizeof(RobotCustomStatus)) {
+    if (data.size() != sizeof(RobotCustomStatus)) {
         qWarning() << "NetworkManager: CustomByteBlock data too small:" << data.size()
                    << "expected at least" << sizeof(RobotCustomStatus);
         return;

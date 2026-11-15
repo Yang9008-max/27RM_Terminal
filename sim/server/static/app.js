@@ -242,7 +242,7 @@ if (!hasSocketIo || !hasVue) {
             current_health: 600,
             current_heat: 0,
             last_projectile_fire_rate: 0,
-            current_chassis_energy: 0,
+            reserved: 0,
             current_buffer_energy: 0,
             current_experience: 100,
             experience_for_upgrade: 1000,
@@ -257,7 +257,7 @@ if (!hasSocketIo || !hasVue) {
             current_health: 600,
             current_heat: 0,
             last_projectile_fire_rate: 0,
-            current_chassis_energy: 0,
+            reserved: 0,
             current_buffer_energy: 0,
             current_experience: 100,
             experience_for_upgrade: 1000,
@@ -281,7 +281,7 @@ if (!hasSocketIo || !hasVue) {
             video_transmission: 1,
             capacitor: 1,
             main_controller: 1,
-            laser_detection_module: 1
+            modular_42mm: 0
         },
         robotModuleStatusForm: {
             power_manager: 1,
@@ -294,7 +294,7 @@ if (!hasSocketIo || !hasVue) {
             video_transmission: 1,
             capacitor: 1,
             main_controller: 1,
-            laser_detection_module: 1
+            modular_42mm: 0
         },
         robotModuleStatusDirty: false,
         isSyncingRobotModuleStatusForm: false,
@@ -1362,7 +1362,7 @@ if (!hasSocketIo || !hasVue) {
                 current_health: Number(state.current_health ?? 600),
                 current_heat: this.toStatusFloat(state.current_heat ?? 0, 0),
                 last_projectile_fire_rate: this.toStatusFloat(state.last_projectile_fire_rate ?? 0, 0),
-                current_chassis_energy: Number(state.current_chassis_energy ?? 0),
+                reserved: Number(state.reserved ?? 0),
                 current_buffer_energy: Number(state.current_buffer_energy ?? 0),
                 current_experience: Number(state.current_experience ?? 100),
                 experience_for_upgrade: Number(state.experience_for_upgrade ?? 1000),
@@ -1388,7 +1388,7 @@ if (!hasSocketIo || !hasVue) {
                 video_transmission: Number(state.video_transmission ?? 1),
                 capacitor: Number(state.capacitor ?? 1),
                 main_controller: Number(state.main_controller ?? 1),
-                laser_detection_module: Number(state.laser_detection_module ?? 1)
+                modular_42mm: Number(state.modular_42mm ?? 0)
             });
             this.isSyncingRobotModuleStatusForm = false;
         },
@@ -1412,7 +1412,7 @@ if (!hasSocketIo || !hasVue) {
             return Number(state.current_health ?? 600) === Number(this.robotDynamicStatusForm.current_health)
                 && this.toStatusFloat(state.current_heat ?? 0, 0) === this.toStatusFloat(this.robotDynamicStatusForm.current_heat, 0)
                 && this.toStatusFloat(state.last_projectile_fire_rate ?? 0, 0) === this.toStatusFloat(this.robotDynamicStatusForm.last_projectile_fire_rate, 0)
-                && Number(state.current_chassis_energy ?? 0) === Number(this.robotDynamicStatusForm.current_chassis_energy)
+                && Number(state.reserved ?? 0) === Number(this.robotDynamicStatusForm.reserved)
                 && Number(state.current_buffer_energy ?? 0) === Number(this.robotDynamicStatusForm.current_buffer_energy)
                 && Number(state.current_experience ?? 100) === Number(this.robotDynamicStatusForm.current_experience)
                 && Number(state.experience_for_upgrade ?? 1000) === Number(this.robotDynamicStatusForm.experience_for_upgrade)
@@ -1434,7 +1434,7 @@ if (!hasSocketIo || !hasVue) {
                 && Number(state.video_transmission ?? 1) === Number(this.robotModuleStatusForm.video_transmission)
                 && Number(state.capacitor ?? 1) === Number(this.robotModuleStatusForm.capacitor)
                 && Number(state.main_controller ?? 1) === Number(this.robotModuleStatusForm.main_controller)
-                && Number(state.laser_detection_module ?? 1) === Number(this.robotModuleStatusForm.laser_detection_module);
+                && Number(state.modular_42mm ?? 0) === Number(this.robotModuleStatusForm.modular_42mm);
         },
         normalizeRobotInjuryForm() {
             if (this.isNormalizingRobotInjuryForm) {
@@ -1793,7 +1793,7 @@ if (!hasSocketIo || !hasVue) {
                 current_health: this.toNonNegativeInt(this.robotDynamicStatusForm.current_health),
                 current_heat: this.toStatusFloat(this.robotDynamicStatusForm.current_heat, 0),
                 last_projectile_fire_rate: this.toStatusFloat(this.robotDynamicStatusForm.last_projectile_fire_rate, 0),
-                current_chassis_energy: this.toNonNegativeInt(this.robotDynamicStatusForm.current_chassis_energy),
+                reserved: this.toNonNegativeInt(this.robotDynamicStatusForm.reserved),
                 current_buffer_energy: this.toNonNegativeInt(this.robotDynamicStatusForm.current_buffer_energy),
                 current_experience: this.toNonNegativeInt(this.robotDynamicStatusForm.current_experience),
                 experience_for_upgrade: this.toNonNegativeInt(this.robotDynamicStatusForm.experience_for_upgrade),
@@ -1818,7 +1818,7 @@ if (!hasSocketIo || !hasVue) {
                 video_transmission: this.toNonNegativeInt(this.robotModuleStatusForm.video_transmission),
                 capacitor: this.toNonNegativeInt(this.robotModuleStatusForm.capacitor),
                 main_controller: this.toNonNegativeInt(this.robotModuleStatusForm.main_controller),
-                laser_detection_module: this.toNonNegativeInt(this.robotModuleStatusForm.laser_detection_module)
+                modular_42mm: this.toNonNegativeInt(this.robotModuleStatusForm.modular_42mm)
             });
         },
         sendRobotPerformanceSelection() {

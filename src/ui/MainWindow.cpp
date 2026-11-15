@@ -628,7 +628,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   });
 }
 
-MainWindow::~MainWindow() { resetKeyboardMouseControlState(true); }
+MainWindow::~MainWindow() {
+  resetKeyboardMouseControlState(true);
+#ifdef RM_HAS_MQTT
+  if (m_networkManager) m_networkManager->stopMqtt();
+#endif
+}
 
 void MainWindow::toggleSettingsPanel() {
   qInfo() << "[tactical-login] toggleSettingsPanel"
@@ -4674,30 +4679,12 @@ void MainWindow::handleMiniMapClick(qreal x, qreal y) {
   }
   m_miniMapMarkCooldownUntilMs = nowMs + 1500;
 
-  if (m_networkManager) {
-#ifndef RM_HAS_MQTT
-    m_networkManager->sendMapMarking(static_cast<float>(normX),
-                                     static_cast<float>(normY),
-                                     m_pendingMiniMapMarkType);
-#endif
-#ifdef RM_HAS_MQTT
-    if (m_networkManager->isMqttConnected()) {
-      m_networkManager->sendMapClickInfo(
-          static_cast<quint32>(currentMiniMapTargetRobotId()),
-          static_cast<float>(normX * 28.0), static_cast<float>(normY * 15.0),
-          m_pendingMiniMapMarkType, 0, 0, canBroadcastMiniMapCommand());
-    }
-#endif
-  }
-
+  // The old operator-map image has no verified 2027 coordinate calibration.
+  // Keep markers local until map origin, orientation and scale are established.
   if (m_battleMessage) {
-    const QString scope =
-        canBroadcastMiniMapCommand() ? QStringLiteral("全队")
-                                     : QStringLiteral("当前机器人");
-    m_battleMessage->showMessage(QStringLiteral("%1 -> %2 (%3m, %4m)")
-                                     .arg(m_pendingMiniMapCommandLabel, scope)
-                                     .arg(normX * 28.0, 0, 'f', 1)
-                                     .arg(normY * 15.0, 0, 'f', 1));
+    m_battleMessage->showMessage(
+        QStringLiteral("%1：本地标记（2027地图坐标未校准）")
+            .arg(m_pendingMiniMapCommandLabel));
   }
 }
 
@@ -4707,7 +4694,7 @@ void MainWindow::setupKeyboardMouseControlTimer() {
   }
   m_keyboardMouseControlTimer = new QTimer(this);
   m_keyboardMouseControlTimer->setTimerType(Qt::PreciseTimer);
-  m_keyboardMouseControlTimer->setInterval(13);
+  m_keyboardMouseControlTimer->setInterval(14);
   connect(m_keyboardMouseControlTimer, &QTimer::timeout, this,
           &MainWindow::flushKeyboardMouseControlFrame);
 }
@@ -5127,7 +5114,7 @@ void MainWindow::resetKeyboardMouseControlState(bool sendNeutral) {
 
 // ============================================================================
 // 前哨站状态 -> CustomControl (0x0311) 转发给机器人
-// CustomControl 载荷（10 字节，不超过协议规定的 30 字节上限）：
+// CustomControl 载荷（10 字节，不超过2027协议规定的 60 字节上限）：
 //   字节 0：    command_type（0x01 = outpost_status）
 //   字节 1：    enemy_team（0=RED，1=BLUE）
 //   字节 2-3：  outpost_hp（uint16，大端序）

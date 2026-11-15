@@ -88,6 +88,33 @@ class ProtocolContractTest(unittest.TestCase):
             [(item.start, item.end) for item in buff.reserved_range],
         )
 
+    def test_2027_transport_presence_and_release(self):
+        for name in ("RobotStaticStatus", "RobotDynamicStatus", "RobotModuleStatus",
+                     "GlobalLogisticsStatus", "KeyboardMouseControl", "CustomControl",
+                     "CustomByteBlock", "MapClickCmd", "MapClickInfo"):
+            with self.subTest(message=name):
+                descriptor = self._message_descriptor(name)
+                self.assertTrue(all(field.proto3_optional for field in descriptor.field))
+        dynamic = self._message_descriptor("RobotDynamicStatus")
+        self.assertEqual("reserved", next(field.name for field in dynamic.field if field.number == 4))
+        module = self._message_descriptor("RobotModuleStatus")
+        self.assertEqual("modular_42mm", next(field.name for field in module.field if field.number == 11))
+        release = pb.KeyboardMouseControl(mouse_x=0, mouse_y=0, mouse_z=0,
+            left_button_down=False, right_button_down=False, keyboard_value=0,
+            mid_button_down=False)
+        self.assertEqual(bytes.fromhex("0800100018002000280030003800"), release.SerializeToString())
+        for name in ("MapClickCmd", "MapClickInfo"):
+            message = getattr(pb, name)(robot_id=b"\x03" + b"\0" * 6, map_x=0, map_y=0)
+            decoded = getattr(pb, name).FromString(message.SerializeToString())
+            self.assertTrue(decoded.HasField("map_x"))
+            self.assertEqual(len(decoded.robot_id), 7)
+
+    def test_2027_dynamic_reserved_is_not_simulated_energy(self):
+        publisher, published = self._publisher()
+        publisher._publish_robot_dynamic_status({"robotDynamicStatus": {"reserved": 100}})
+        message = pb.RobotDynamicStatus.FromString(published[0][1])
+        self.assertFalse(message.HasField("reserved"))
+
     def test_cross_language_wire_golden_payloads(self):
         game_status = pb.GameStatus(
             current_round=0,

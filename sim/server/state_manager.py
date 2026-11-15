@@ -321,7 +321,7 @@ class StateManager:
             "current_health": 600,
             "current_heat": 0.0,
             "last_projectile_fire_rate": 0.0,
-            "current_chassis_energy": 0,
+            "reserved": 0,
             "current_buffer_energy": 0,
             "current_experience": 100,
             "experience_for_upgrade": 1000,
@@ -346,7 +346,7 @@ class StateManager:
             "video_transmission": 1,
             "capacitor": 1,
             "main_controller": 1,
-            "laser_detection_module": 1,
+            "modular_42mm": 0,
         }
 
     @staticmethod
@@ -1382,8 +1382,8 @@ class StateManager:
                 0.0,
                 0.0,
             )
-            normalized["current_chassis_energy"] = self._normalize_robot_status_uint(
-                source.get("current_chassis_energy", normalized["current_chassis_energy"]), 0
+            normalized["reserved"] = self._normalize_robot_status_uint(
+                source.get("reserved", normalized["reserved"]), 0
             )
             normalized["current_buffer_energy"] = self._normalize_robot_status_uint(
                 source.get("current_buffer_energy", normalized["current_buffer_energy"]), 0

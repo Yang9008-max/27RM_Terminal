@@ -1178,7 +1178,7 @@
                         <div class="control-line"><label>当前血量</label><input type="number" v-model.number="robotDynamicStatusForm.current_health" min="0"></div>
                         <div class="control-line"><label>当前热量</label><input type="number" v-model.number="robotDynamicStatusForm.current_heat" min="0" step="0.1"></div>
                         <div class="control-line"><label>上一次弹丸射速</label><input type="number" v-model.number="robotDynamicStatusForm.last_projectile_fire_rate" min="0" step="0.1"></div>
-                        <div class="control-line"><label>当前剩余底盘能量</label><input type="number" v-model.number="robotDynamicStatusForm.current_chassis_energy" min="0"></div>
+                        <div class="control-line"><label>2027保留位（不发送）</label><input type="number" v-model.number="robotDynamicStatusForm.reserved" disabled min="0"></div>
                         <div class="control-line"><label>当前缓冲能量</label><input type="number" v-model.number="robotDynamicStatusForm.current_buffer_energy" min="0"></div>
                         <div class="control-line"><label>当前经验值</label><input type="number" v-model.number="robotDynamicStatusForm.current_experience" min="0"></div>
                         <div class="control-line"><label>距离下一次升级仍需获得的经验</label><input type="number" v-model.number="robotDynamicStatusForm.experience_for_upgrade" min="0"></div>
@@ -1202,7 +1202,7 @@
                         <div class="control-line"><label>图传</label><input type="number" v-model.number="robotModuleStatusForm.video_transmission" min="0"></div>
                         <div class="control-line"><label>电容</label><input type="number" v-model.number="robotModuleStatusForm.capacitor" min="0"></div>
                         <div class="control-line"><label>主控</label><input type="number" v-model.number="robotModuleStatusForm.main_controller" min="0"></div>
-                        <div class="control-line"><label>激光检测</label><input type="number" v-model.number="robotModuleStatusForm.laser_detection_module" min="0"></div>
+                        <div class="control-line"><label>42mm模块安装权限</label><input type="number" v-model.number="robotModuleStatusForm.modular_42mm" min="0"></div>
                         <div class="actions"><button @click="sendRobotModuleStatus">发送模块状态</button></div>
                     </div>
                 </div>
