@@ -1996,7 +1996,7 @@ void GameData::updateRobotPerformanceSelectionSync(const robomaster::RobotPerfor
 void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &update) {
   const int snapshotId = update.has_robot_id() ? update.robot_id() : m_currentRobotId;
   auto &snapshot = m_robotStaticSnapshots[snapshotId];
-  snapshot.MergeFrom(update); // Only use merged field/alive state for status priority.
+  snapshot.MergeFrom(update); // Effective field/alive state also tracks newer official health.
   const auto &data = update; // Other fields may have newer sources, e.g. performance Sync.
   //MQTT协议绑定
   const RobotType parsedType =
@@ -2071,8 +2071,7 @@ void GameData::updateRobotStaticStatus(const robomaster::RobotStaticStatus &upda
     // RobotStaticStatus 只要下发就说明机器人在场内已注册。
     // connection_state=0 只表示硬件连接暂时断开，不应直接标记为 OFFLINE。
     // 只有 field_state==1（不在场地清单中）才是真正的离线。
-    // currentHP==0 不作为 DESTROYED 条件：非当前机器人的 HP 来自 RobotDynamicStatus
-    // 而它只更新 m_currentRobotId，队友机器人只靠 alive_state 判断存亡。
+    // 缺失血量不能当作阵亡：存活缓存由显式 alive_state 或较新的官方血量更新。
     if (data.has_field_state() || data.has_alive_state()) {
       if (snapshot.has_field_state() && snapshot.field_state() == 1) {
         robot->status = RobotStatus::OFFLINE;
@@ -2153,11 +2152,16 @@ void GameData::updateRobotDynamicStatus(const robomaster::RobotDynamicStatus &da
   robot->lastUpdateTime = QDateTime::currentDateTime();
   if (data.has_out_of_combat_countdown()) robot->outOfCombatCountdown = data.out_of_combat_countdown();
 
-  if (data.has_current_health() && robot->currentHP == 0) {
-    robot->status = RobotStatus::DESTROYED;
-  } else if (data.has_current_health() && (robot->status == RobotStatus::DESTROYED ||
-             robot->status == RobotStatus::OFFLINE)) {
-    robot->status = RobotStatus::NORMAL;
+  if (data.has_current_health()) {
+    // Keep later field-only packets from replaying an older static alive state.
+    auto &snapshot = m_robotStaticSnapshots[robotId];
+    snapshot.set_alive_state(robot->currentHP > 0 ? 1 : 2);
+    if (snapshot.has_field_state() && snapshot.field_state() == 1) {
+      robot->status = RobotStatus::OFFLINE;
+    } else {
+      robot->status = robot->currentHP > 0 ? RobotStatus::NORMAL
+                                         : RobotStatus::DESTROYED;
+    }
   }
 
   emitDataChanged();
@@ -2731,6 +2735,9 @@ void GameData::updateGlobalUnitStatus(const robomaster::GlobalUnitStatus &data) 
     robot->lastUpdateTime = QDateTime::currentDateTime();
     robot->hasTabGlobalSnapshot = true;
 
+    // Global health is another official source of liveness, including teammates.
+    m_robotStaticSnapshots[robotId].set_alive_state(globalHp > 0 ? 1 : 2);
+
     if (globalHp == 0 &&
         robot->status != RobotStatus::OFFLINE) {
       robot->status = RobotStatus::DESTROYED;
@@ -2830,6 +2837,7 @@ const OutpostData &GameData::getOutpostByTeam(TeamColor team) const {
 //比赛状态协议的统一落点（重置逻辑在此函数中）
 void GameData::resetMatchStatus() {
   m_robotStaticSnapshots.clear();
+  m_lastLocalHeatSet = QDateTime();
   m_robotModuleStatusMap.clear();
   m_moduleStatus.clear();
   m_lastModuleOnlineStates.clear();
@@ -2837,6 +2845,27 @@ void GameData::resetMatchStatus() {
   for (auto &robot : m_robots) {
     robot.shooterPerformanceSelection = 0;
     robot.chassisPerformanceSelection = 0;
+    robot.chassisEnabled = false;
+    robot.shooterLocked = true;
+    // Optional fields retain values only within one session. Zero here is a
+    // cleared value, not a received death/permission snapshot (status is OFFLINE).
+    robot.currentHP = 0;
+    robot.currentRoundMaxHP = 0;
+    robot.currentHeat = 0;
+    robot.isHeatOverLimit = false;
+    robot.firerate = robot.launchingFrequency = 0;
+    robot.bufferEnergy = 0;
+    robot.experience = robot.maxExperience = 0;
+    robot.allowedAmmo17mm = robot.allowedAmmo42mm = 0;
+    robot.isOutOfCombat = false;
+    robot.outOfCombatCountdown = 0;
+    robot.canRemoteHeal = robot.canRemoteAmmo = false;
+    robot.lastDamageTime = robot.lastFireTime = QDateTime();
+    robot.lastUpdateTime = QDateTime();
+    robot.status = RobotStatus::OFFLINE;
+    robot.isClientConnected = robot.isControllerConnected = false;
+    robot.tabStaticConnected = false;
+    emit robotDataUpdated(robot.robotId);
   }
   m_officialWinner = m_officialEndReason = 255;
   m_hasStageElapsed = false;

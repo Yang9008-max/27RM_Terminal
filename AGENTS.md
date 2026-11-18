@@ -16,6 +16,8 @@
 
 第七阶段 `rmul2027/07-transport` 修复通信审查问题，基线标签 `rmul2027-pre-07-transport-20261115`。静态/动态/模块/经济按optional增量更新，明确键鼠零值释放；键鼠和CustomControl各自限75Hz，CustomControl最大60B，断开前归零且重连不重放。CustomByteBlock默认raw，旧MQTT视频须显式`RM_CUSTOM_DATA_FORMAT=h264`，旧状态须`robot-status-v1`。地图采用MapClickCmd/MapClickInfo及编号表#3标记类型/#6地图模式；旧操作图未校准，仅本地标记，下行仅发观测信号。未知模块灰色问号。Release独立构建于`build/windows-ucrt64-transport`（原exe正在运行），34项CTest最终验证通过、Python50项通过、独立MQTT测试通过。主窗口集成测试现已隔离到65534/65533/65532端口，无需停止本地3333模拟器。完整记录见`docs/development/rmul2027-transport.md`；真实裁判端/硬件、其他消息存在性和旧前哨语义尚未验收。
 
+2026-11-18阶段七审查修复：基线 `rmul2027-pre-07-state-review-20261118`，完成标签 `rmul2027-07-state-review-done-20261118`。动态/全局显式血量同步有效alive缓存，静态field-only分包不重放旧存活值；显式off-field仍优先。`resetMatchStatus`清理动态状态与远程补给权限，防止断线/角色切换后稀疏消息沿用旧值。新增13个回归先失败后通过，Release/CTest34项通过，独立MQTT22项通过且无跳过。详情及限制见`docs/development/rmul2027-transport.md`末节。
+
 第六阶段 `rmul2027/06-tactical` 迁移独立战术页，基线标签 `rmul2027-pre-06-tactical-20261114`。`GameData::rmulTacticalData()` 复用带存在性的比赛快照，固定双方 1/3/7 三车；不回退到旧 TacticalMock、默认血量或六车分析结果。战术页显示控制度/总攻击伤害/三车剩余血量，保留 Ctrl+Y 相机布局与 M 展开；地图为按 2027 图 3-1/3-4 自绘的 12×8 结构示意，未接实时定位/占领。停止旧战术定时预告和回血猜金币复活播报接线。旧操作页小地图、长按 TAB、H 兑换与其他旧事件仍未迁移。验收和边界见 `docs/development/rmul2027-tactical.md`。
 
 第五阶段 `rmul2027/05-local-settings` 修复 P 面板音量与视频限帧，基线标签 `rmul2027-pre-05-local-settings-20261114`，完成标签 `rmul2027-step-05-done`。提示音量统一短语音/击杀/结算/试听，音乐默认 50%；禁用音频和缺少音乐均显式显示，支持本次运行选择本地音乐及独立试听。视频限帧在实际呈现路径执行，保留最新尾帧并防止其他重绘绕过。Release/CTest 33 项通过，真实窗口已检查拖动、两类试听、文件选择和 144 FPS 选项。详细边界见 `docs/development/rmul2027-local-settings.md`。正常桌面验收不要使用旧 `tmp/desktop-acceptance-20261113/launch-client.ps1`，它会设置 `RM_DISABLE_AUDIO=1`；交付应清除该变量并重启。音源缺口仍按可选音效包处理，未验收实际听感和真实硬件。

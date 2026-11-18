@@ -58,3 +58,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command '. ./tools/windows/enviro
 - Python协议、RMUL数据、性能、结算与比赛引擎50项通过，日志`tmp/native-build/python-07.log`。Protobuf生成/运行时一致性检查通过（生成6.33.2、运行时6.33.6）。
 
 真实赛事引擎、裁判系统、机器人和键鼠焦点变化的实机效果尚未验收；旧前哨语义、其他消息存在性和旧功能接线仍按各阶段边界处理。
+
+## 2026-11-18 审查修复：存活缓存与会话动态状态
+
+改动前基线：`4dd6767`，附注标签 `rmul2027-pre-07-state-review-20261118`。修复仍在 `rmul2027/07-transport` 分支，完成标签 `rmul2027-07-state-review-done-20261118`。
+
+- `RobotDynamicStatus.current_health` 和有效的 `GlobalUnitStatus.robot_health` 更新同一份按机器人保存的有效存活状态。后续只包含 `field_state` 的静态分包不会重新应用血量更新前的旧阵亡/存活值。全局血量仍严格按双方1/3/4/7槽位解析。
+- 按消息接收顺序合并显式值：后来明确下发的静态 `alive_state` 仍会生效；没有血量的热量分包不改变存活缓存。显式 `field_state=1` 始终保持 OFFLINE，直到收到恢复在场的字段。
+- MQTT启动、断线以及角色切换已调用的 `resetMatchStatus()` 现在清理所有机器人的动态血量、热量、射速、缓冲能量、经验、弹量、脱战状态/倒计时和远程补给权限，并清理相关时间戳与本地热量覆盖窗口。重置性能选择时同步禁用底盘/锁定发射机构，连接标记归为未连接；逐机器人通知视图刷新。
+- 清理后的血量0是失效后的占位值，状态设为 OFFLINE，不表示收到官方阵亡数据。身份、名称和静态上限保留。同一会话内仍保留缺失字段，显式0/false正常更新；重连后的热量分包不能恢复旧血量和补给权限。
+
+验证记录：
+
+- 修复前新增13个回归失败：8个红蓝/归零或复活/动态或全局血量交错用例，1个在场优先级用例，4个红蓝直接重置或切换角色用例。仅修复存活缓存后剩4个会话重置失败，随后全部通过。日志：`tmp/native-build/review-state-before.txt`、`review-state-after-liveness.txt`、`review-state-focused.txt`。
+- Release完整构建、资源检查和34/34项CTest通过；完整测试日志：`build/windows-ucrt64-transport/Testing/Temporary/LastTest.log`。
+- 独立本地Mosquitto实链路22通过、0失败、0跳过，包含断开前授权、断开清理、重连后热量分包不恢复旧授权/血量，以及原有发送预算、明确释放和地图/自定义数据边界。结果：`tmp/rmul2027-transport/20261118-133436-008177/result.json`，同目录 `receiver.txt`。
+- `git diff --check` 通过。实现计划与回归步骤见 [审查修复计划](../superpowers/plans/2026-11-18-transport-state-review.md)。
+
+本补丁按客户端接收顺序处理跨主题的显式状态，没有增加服务端采样时间排序。验证覆盖本机原生构建与本地MQTT，未替代真实裁判系统/机器人验收；其他消息及历史自定义字段的会话生命周期仍不属于这次两项修复的范围。

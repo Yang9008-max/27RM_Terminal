@@ -128,6 +128,165 @@ private slots:
     QCOMPARE(data.getRobotById(3)->status, RobotStatus::OFFLINE);
   }
 
+  void newerHealthSurvivesStaticFieldOnly_data() {
+    QTest::addColumn<int>("robotId");
+    QTest::addColumn<int>("health");
+    QTest::addColumn<bool>("global");
+    for (int id : {3, 103})
+      for (int hp : {0, 100})
+        for (bool global : {false, true})
+          QTest::newRow(qPrintable(QString("%1-%2-%3").arg(id).arg(hp).arg(global)))
+              << id << hp << global;
+  }
+
+  void newerHealthSurvivesStaticFieldOnly() {
+    QFETCH(int, robotId);
+    QFETCH(int, health);
+    QFETCH(bool, global);
+    GameData data;
+    data.setCurrentRobotId(robotId);
+    robomaster::RobotStaticStatus initial;
+    initial.set_robot_id(robotId);
+    initial.set_field_state(2);
+    initial.set_alive_state(health > 0 ? 2 : 1);
+    data.updateRobotStaticStatus(initial);
+    if (global) {
+      robomaster::GlobalUnitStatus update;
+      for (int hp : {400, health, 0, 300, 400, 350, 0, 300})
+        update.add_robot_health(hp);
+      data.updateGlobalUnitStatus(update);
+    } else {
+      robomaster::RobotDynamicStatus update;
+      update.set_current_health(health);
+      data.updateRobotDynamicStatus(update);
+    }
+    const auto expected = health > 0 ? RobotStatus::NORMAL : RobotStatus::DESTROYED;
+    QCOMPARE(data.getCurrentRobot()->status, expected);
+    robomaster::RobotStaticStatus fieldOnly;
+    fieldOnly.set_field_state(2);
+    data.updateRobotStaticStatus(fieldOnly);
+    QCOMPARE(data.getCurrentRobot()->currentHP, health);
+    QCOMPARE(data.getCurrentRobot()->status, expected);
+
+    // A later explicit alive field remains authoritative, even if HP is unchanged.
+    robomaster::RobotStaticStatus aliveOnly;
+    aliveOnly.set_alive_state(health > 0 ? 2 : 1);
+    data.updateRobotStaticStatus(aliveOnly);
+    QCOMPARE(data.getCurrentRobot()->status,
+             health > 0 ? RobotStatus::DESTROYED : RobotStatus::NORMAL);
+    robomaster::RobotDynamicStatus heatOnly;
+    heatOnly.set_current_heat(5);
+    data.updateRobotDynamicStatus(heatOnly);
+    data.updateRobotStaticStatus(fieldOnly);
+    QCOMPARE(data.getCurrentRobot()->status,
+             health > 0 ? RobotStatus::DESTROYED : RobotStatus::NORMAL);
+  }
+
+  void offFieldSurvivesHealthUntilFieldReturns() {
+    GameData data;
+    data.setCurrentRobotId(3);
+    robomaster::RobotStaticStatus offField;
+    offField.set_field_state(1);
+    offField.set_alive_state(2);
+    data.updateRobotStaticStatus(offField);
+    robomaster::RobotDynamicStatus health;
+    health.set_current_health(100);
+    data.updateRobotDynamicStatus(health);
+    QCOMPARE(data.getCurrentRobot()->status, RobotStatus::OFFLINE);
+    robomaster::RobotStaticStatus aliveOnly;
+    aliveOnly.set_alive_state(1);
+    data.updateRobotStaticStatus(aliveOnly);
+    QCOMPARE(data.getCurrentRobot()->status, RobotStatus::OFFLINE);
+    aliveOnly.Clear(); aliveOnly.set_field_state(2);
+    data.updateRobotStaticStatus(aliveOnly);
+    QCOMPARE(data.getCurrentRobot()->status, RobotStatus::NORMAL);
+  }
+
+  void sessionResetInvalidatesDynamicState_data() {
+    QTest::addColumn<int>("robotId");
+    QTest::addColumn<bool>("switchRole");
+    for (int id : {3, 103})
+      for (bool switchRole : {false, true})
+        QTest::newRow(qPrintable(QString("%1-switch-%2").arg(id).arg(switchRole)))
+            << id << switchRole;
+  }
+
+  void sessionResetInvalidatesDynamicState() {
+    QFETCH(int, robotId);
+    QFETCH(bool, switchRole);
+    GameData data;
+    data.setCurrentRobotId(robotId);
+    robomaster::RobotDynamicStatus first;
+    first.set_current_health(450);
+    first.set_current_heat(80);
+    first.set_last_projectile_fire_rate(15);
+    first.set_current_buffer_energy(50);
+    first.set_current_experience(200);
+    first.set_experience_for_upgrade(300);
+    first.set_remaining_ammo(90);
+    first.set_is_out_of_combat(true);
+    first.set_out_of_combat_countdown(4);
+    first.set_can_remote_heal(true);
+    first.set_can_remote_ammo(true);
+    data.updateRobotDynamicStatus(first);
+    robomaster::RobotDynamicStatus heatOnly;
+    heatOnly.set_current_heat(5);
+    data.updateRobotDynamicStatus(heatOnly);
+    QCOMPARE(data.getCurrentRobot()->currentHP, 450);
+    QVERIFY(data.canRemoteHeal());
+    QVERIFY(data.canRemoteAmmo());
+    QSignalSpy robotChanged(&data, &GameData::robotDataUpdated);
+    QSignalSpy currentChanged(&data, &GameData::myRobotUpdated);
+    if (switchRole) {
+      data.setCurrentRobotId(robotId == 3 ? 7 : 107);
+      data.setCurrentRobotId(robotId);
+    } else {
+      data.resetMatchStatus();
+    }
+    const auto *robot = data.getCurrentRobot();
+    QCOMPARE(robot->currentHP, 0);
+    QCOMPARE(robot->currentHeat, 0);
+    QCOMPARE(robot->firerate, 0);
+    QCOMPARE(robot->launchingFrequency, 0);
+    QCOMPARE(robot->bufferEnergy, 0);
+    QCOMPARE(robot->experience, 0);
+    QCOMPARE(robot->maxExperience, 0);
+    QCOMPARE(robot->allowedAmmo17mm, 0);
+    QCOMPARE(robot->allowedAmmo42mm, 0);
+    QCOMPARE(robot->outOfCombatCountdown, 0);
+    QVERIFY(!robot->isOutOfCombat);
+    QVERIFY(!data.canRemoteHeal());
+    QVERIFY(!data.canRemoteAmmo());
+    QCOMPARE(robot->status, RobotStatus::OFFLINE);
+    QVERIFY(currentChanged.count() > 0);
+    bool notified = false;
+    for (const auto &event : robotChanged)
+      notified |= event.at(0).toInt() == robotId;
+    QVERIFY(notified);
+    data.updateRobotDynamicStatus(heatOnly);
+    QCOMPARE(robot->currentHP, 0);
+    QCOMPARE(robot->currentHeat, 5);
+    QCOMPARE(robot->status, RobotStatus::OFFLINE);
+    QVERIFY(!data.canRemoteHeal());
+    QVERIFY(!data.canRemoteAmmo());
+
+    first.Clear();
+    first.set_current_health(100);
+    first.set_can_remote_heal(true);
+    first.set_can_remote_ammo(true);
+    data.updateRobotDynamicStatus(first);
+    QVERIFY(data.canRemoteHeal());
+    QVERIFY(data.canRemoteAmmo());
+    first.set_current_health(0);
+    first.set_can_remote_heal(false);
+    first.set_can_remote_ammo(false);
+    data.updateRobotDynamicStatus(first);
+    QCOMPARE(robot->currentHP, 0);
+    QCOMPARE(robot->status, RobotStatus::DESTROYED);
+    QVERIFY(!data.canRemoteHeal());
+    QVERIFY(!data.canRemoteAmmo());
+  }
+
   void releaseHasExplicitZeroFields() {
     robomaster::KeyboardMouseControl release;
     const auto *descriptor = release.GetDescriptor();
@@ -223,6 +382,14 @@ private slots:
     QTest::qWait(30);
     QCOMPARE(raw.count(), 2);
     QCOMPARE(received.count(), 4); // Downlink must never cause command echo.
+    robomaster::RobotDynamicStatus dynamic;
+    dynamic.set_current_health(450);
+    dynamic.set_can_remote_heal(true);
+    dynamic.set_can_remote_ammo(true);
+    QVERIFY(peer.publish("RobotDynamicStatus", QByteArray::fromStdString(dynamic.SerializeAsString())));
+    QTRY_COMPARE(data.getCurrentRobot()->currentHP, 450);
+    QVERIFY(data.canRemoteHeal());
+    QVERIFY(data.canRemoteAmmo());
     robomaster::GlobalLogisticsStatus economy;
     economy.set_remaining_economy(300);
     QVERIFY(peer.publish("GlobalLogisticsStatus", QByteArray::fromStdString(economy.SerializeAsString())));
@@ -236,6 +403,9 @@ private slots:
     QVERIFY(network.sendKeyboardMouseControl(0, 0, 0, true, false, false, 2));
     network.stopMqtt(); // Drain a neutral frame before disconnect, discard queued actions.
     QTRY_COMPARE_WITH_TIMEOUT(received.count(), 2, 5000);
+    QCOMPARE(data.getCurrentRobot()->currentHP, 0);
+    QVERIFY(!data.canRemoteHeal());
+    QVERIFY(!data.canRemoteAmmo());
     robomaster::KeyboardMouseControl finalFrame;
     QVERIFY(finalFrame.ParseFromString(received.last().at(1).toByteArray().toStdString()));
     QVERIFY(finalFrame.has_keyboard_value());
@@ -243,6 +413,13 @@ private slots:
     QVERIFY(!finalFrame.left_button_down());
     network.startMqtt(uri, "1");
     QTRY_VERIFY_WITH_TIMEOUT(network.isMqttConnected(), 10000);
+    dynamic.Clear(); dynamic.set_current_heat(5);
+    QVERIFY(peer.publish("RobotDynamicStatus", QByteArray::fromStdString(dynamic.SerializeAsString())));
+    QTRY_COMPARE(data.getCurrentRobot()->currentHeat, 5);
+    QCOMPARE(data.getCurrentRobot()->currentHP, 0);
+    QCOMPARE(data.getCurrentRobot()->status, RobotStatus::OFFLINE);
+    QVERIFY(!data.canRemoteHeal());
+    QVERIFY(!data.canRemoteAmmo());
     QTest::qWait(30);
     QCOMPARE(received.count(), 2);
     network.stopMqtt();
