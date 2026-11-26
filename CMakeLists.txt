@@ -25,6 +25,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 option(RM26_ENABLE_DEVTOOLS "Enable optional RM26 development hooks" OFF)
+option(RM_REQUIRE_MATCH_IO "Require Paho MQTT and FFmpeg for a match-capable build" OFF)
 
 # 加载本机可选路径；该文件不进入版本控制。
 include(CMakeUserPaths.cmake OPTIONAL)
@@ -220,8 +221,15 @@ else()
     endif()
 endif()
 
+if(RM_REQUIRE_MATCH_IO AND NOT PAHO_MQTT_FOUND)
+    message(FATAL_ERROR "Paho MQTT C is required for match data (Ubuntu: libpaho-mqtt-dev)")
+endif()
+if(RM_REQUIRE_MATCH_IO AND NOT RM_HAS_FFMPEG)
+    message(FATAL_ERROR "FFmpeg is required for match video. Enable RM_WITH_FFMPEG and install libavcodec-dev, libavformat-dev, libavutil-dev and libswscale-dev on Ubuntu.")
+endif()
+
 # ONNX Runtime 用于可选目标检测
-if(APPLE)
+if(APPLE AND NOT DEFINED ONNXRUNTIME_ROOT)
     set(ONNXRUNTIME_ROOT "/opt/homebrew/opt/onnxruntime")
 elseif(WIN32)
     # Windows 通过标准搜索路径或用户提供的 ONNXRUNTIME_ROOT 定位运行库。
@@ -230,21 +238,25 @@ elseif(WIN32)
     endif()
 endif()
 
-if(DEFINED ONNXRUNTIME_ROOT AND EXISTS "${ONNXRUNTIME_ROOT}")
-    set(ONNXRUNTIME_INCLUDE_DIRS "${ONNXRUNTIME_ROOT}/include")
-    # Windows 构建阶段链接 .lib，运行阶段再部署对应 DLL。
-    if(WIN32)
-        set(ONNXRUNTIME_LIBRARIES "${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib")
-    else()
-        set(ONNXRUNTIME_LIBRARIES "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.dylib")
+set(ONNXRUNTIME_FOUND FALSE)
+if(ONNXRUNTIME_ROOT AND IS_DIRECTORY "${ONNXRUNTIME_ROOT}")
+    # 根目录可能改为另一套 SDK，重新检查头文件和当前系统使用的库。
+    unset(ONNXRUNTIME_INCLUDE_DIRS CACHE)
+    unset(ONNXRUNTIME_LIBRARIES CACHE)
+    find_path(ONNXRUNTIME_INCLUDE_DIRS NAMES onnxruntime_cxx_api.h
+        PATHS "${ONNXRUNTIME_ROOT}/include" PATH_SUFFIXES onnxruntime NO_DEFAULT_PATH)
+    find_library(ONNXRUNTIME_LIBRARIES NAMES onnxruntime
+        PATHS "${ONNXRUNTIME_ROOT}/lib" "${ONNXRUNTIME_ROOT}/lib64" NO_DEFAULT_PATH)
+    if(ONNXRUNTIME_INCLUDE_DIRS AND ONNXRUNTIME_LIBRARIES)
+        set(ONNXRUNTIME_FOUND TRUE)
     endif()
+endif()
 
+if(ONNXRUNTIME_FOUND)
     message(STATUS "ONNX Runtime found: ${ONNXRUNTIME_ROOT}")
     message(STATUS "ONNX Runtime include: ${ONNXRUNTIME_INCLUDE_DIRS}")
-    set(ONNXRUNTIME_FOUND TRUE)
 else()
-    message(WARNING "ONNX Runtime not found. AR overlay will be disabled.")
-    set(ONNXRUNTIME_FOUND FALSE)
+    message(STATUS "Optional ONNX Runtime SDK unavailable; AR overlay disabled")
 endif()
 
 # Protobuf 代码生成
@@ -677,6 +689,13 @@ add_custom_target(create_resources ALL
     COMMENT "Copying sound resources directory"
 )
 add_dependencies(RoboMasterClient2025 create_resources)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # 配置和声音从可执行文件旁读取，安装目录可脱离源码运行。
+    install(TARGETS RoboMasterClient2025 RUNTIME DESTINATION .)
+    install(DIRECTORY resources/sounds DESTINATION resources)
+    install(FILES config.example.json LICENSE ASSET_LICENSES.md THIRD_PARTY_NOTICES.md DESTINATION .)
+endif()
 
 # 安装树保留与 QRC 一致的目录，便于排查资源包并兼容现有文件系统兜底。
 install(

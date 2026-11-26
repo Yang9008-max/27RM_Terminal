@@ -107,8 +107,7 @@ macOS 可使用 Homebrew：
 brew install cmake qt@6 protobuf abseil libpaho-mqtt ffmpeg
 ```
 
-Ubuntu 24.04 的完整依赖列表可参考
-[docker/client.Dockerfile](docker/client.Dockerfile)。
+Ubuntu 24.04 可按 [Linux 原生部署指南](docs/getting-started/linux.md) 安装依赖、构建和启动 RMUL 终端。
 
 ### 2. 构建客户端
 

@@ -75,8 +75,14 @@ jobs:
         run: python tools/release/check_public_readiness.py
 
   native-build:
-    name: Ubuntu 原生构建
-    runs-on: ubuntu-24.04
+    name: Ubuntu 原生构建 (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
     timeout-minutes: 45
     env:
       QT_QPA_PLATFORM: offscreen
@@ -97,6 +103,10 @@ jobs:
             cmake \
             fontconfig \
             fonts-noto-cjk \
+            gstreamer1.0-libav \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-pulseaudio \
             libabsl-dev \
             libasound2t64 \
             libavcodec-dev \
@@ -105,9 +115,12 @@ jobs:
             libpaho-mqtt-dev \
             libprotobuf-dev \
             libswscale-dev \
+            libxkbcommon-dev \
+            mosquitto \
             ninja-build \
             pkg-config \
             protobuf-compiler \
+            pulseaudio \
             qml6-module-qtqml \
             qml6-module-qtqml-models \
             qml6-module-qtqml-workerscript \
@@ -137,7 +150,7 @@ jobs:
           ccache --zero-stats
 
       - name: 配置
-        run: cmake --preset ci
+        run: cmake --preset ci -DRM_REQUIRE_MATCH_IO=ON
 
       - name: 检查 QML lint 基线
         run: python3 tools/release/check_qml_lint.py
@@ -146,7 +159,14 @@ jobs:
         run: cmake --build --preset ci
 
       - name: 运行 C++ / Qt 测试
-        run: ctest --preset ci --no-tests=error --timeout 120
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=rmul_ci
+          pactl set-default-sink rmul_ci
+          ctest --preset ci --no-tests=error --timeout 120
+
+      - name: 验证 MQTT 真实收发
+        run: python3 tools/verify_rmul2027_transport.py --receiver build/ci/tests/test_rmul2027_transport
 
       - name: 输出编译缓存统计
         if: always()

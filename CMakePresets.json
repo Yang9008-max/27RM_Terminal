@@ -53,9 +53,27 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "RM26_ENABLE_DEVTOOLS": "ON"
       }
+    },
+    {
+      "name": "linux",
+      "displayName": "RMUL Linux 原生构建",
+      "inherits": "release",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "RM_REQUIRE_MATCH_IO": "ON"
+      }
     }
   ],
   "buildPresets": [
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    },
     {
       "name": "dev",
       "configurePreset": "dev",
@@ -82,6 +100,13 @@
     }
   ],
   "testPresets": [
+    {
+      "name": "linux",
+      "configurePreset": "linux",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
     {
       "name": "dev",
       "configurePreset": "dev",

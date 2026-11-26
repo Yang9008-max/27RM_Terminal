@@ -19,7 +19,7 @@
 #include <numeric>
 
 // ONNX Runtime 头文件
-#include <onnxruntime/onnxruntime_cxx_api.h>
+#include <onnxruntime_cxx_api.h>
 
 namespace RM {
 

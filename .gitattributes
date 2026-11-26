@@ -1,3 +1,6 @@
+# 脚本复制到 Linux 或容器后仍可直接执行。
+*.sh text eol=lf
+
 # Git LFS 配置
 # 视频文件
 *.mp4 filter=lfs diff=lfs merge=lfs -text
